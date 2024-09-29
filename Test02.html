@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Head Loss Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 80%; margin: auto; }
+        .result { margin-top: 20px; }
+        canvas { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Water Head Loss Calculator</h1>
+        <form id="headLossForm">
+            <label for="flowRate">Flow Rate (m³/s):</label>
+            <input type="number" step="0.01" id="flowRate" required><br><br>
+
+            <label for="pipeDiameter">Pipe Diameter (m):</label>
+            <input type="number" step="0.01" id="pipeDiameter" required><br><br>
+
+            <label for="pipeLength">Pipe Length (m):</label>
+            <input type="number" step="0.01" id="pipeLength" required><br><br>
+
+            <label for="viscosity">Viscosity (Pa·s):</label>
+            <input type="number" step="0.00000001" id="viscosity" required><br><br>
+
+            <label for="roughness">Roughness (m):</label>
+            <input type="number" step="0.00000001" id="roughness" required><br><br>
+
+            <button type="submit">Calculate</button>
+        </form>
+        <div class="result" id="result"></div>
+        <canvas id="headLossChart"></canvas>
+    </div>
+
+    <script>
+        document.getElementById('headLossForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const flowRate = parseFloat(document.getElementById('flowRate').value);
+            const pipeDiameter = parseFloat(document.getElementById('pipeDiameter').value);
+            const pipeLength = parseFloat(document.getElementById('pipeLength').value);
+            const viscosity = parseFloat(document.getElementById('viscosity').value);
+            const roughness = parseFloat(document.getElementById('roughness').value);
+
+            // Darcy-Weisbach formula for head loss
+            const g = 9.81; // gravitational acceleration (m/s²)
+            const pi = Math.PI;
+            const reynoldsNumber = (4 * flowRate) / (pi * pipeDiameter * viscosity);
+            const frictionFactor = 0.079 / (reynoldsNumber ** 0.25); // Approximation for turbulent flow
+            const headLoss = (frictionFactor * (pipeLength / pipeDiameter) * (flowRate ** 2)) / (2 * g * (pi * (pipeDiameter / 2) ** 2));
+
+            document.getElementById('result').innerHTML = `<p>Head Loss: ${headLoss.toFixed(2)} m</p>`;
+
+            // Generate chart data
+            const flowRates = [0.01, 0.02, 0.03, 0.04, 0.05];
+            const headLosses = flowRates.map(q => {
+                const re = (4 * q) / (pi * pipeDiameter * viscosity);
+                const f = 0.079 / (re ** 0.25);
+                return (f * (pipeLength / pipeDiameter) * (q ** 2)) / (2 * g * (pi * (pipeDiameter / 2) ** 2));
+            });
+
+            // Create the chart
+            const ctx = document.getElementById('headLossChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: flowRates,
+                    datasets: [{
+                        label: 'Head Loss (m)',
+                        data: headLosses,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
