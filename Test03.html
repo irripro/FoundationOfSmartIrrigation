@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>喷灌系统水头损失计算器</title>
+<!-- 引入Chart.js -->
+<!-- script src="https://cdn.jsdelivr.net/npm/chart.js"></script -->
+<script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.7.0/chart.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/chart.js';"> </script>
+<style>
+    canvas {
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+    }
+</style>
+<script>
+    let chartInstance = null;
+    const pi = Math.PI;
+    
+    // 常数
+    const rho = 1000; // 水的密度 kg/m³
+    const nu = 1.004e-6; // 水的动力粘度 m²/s at 20°C
+    const g = 9.81; // 重力加速度 m/s²
+
+    function calculateHeadLoss() {
+    
+        // 获取输入值
+        const Q = parseFloat(document.getElementById('flowRate').value); // 流量 m³/s
+        const D = parseFloat(document.getElementById('pipeDiameter').value) / 1000; // 管径 m
+        const L = parseFloat(document.getElementById('pipeLength').value); // 管道长度 m
+        const epsilon = parseFloat(document.getElementById('roughness').value) / 1000; // 绝对粗糙度 m
+    
+
+        // 计算平均流速
+        const A = Math.PI * D * D / 4;
+        const v = Q / A;
+
+        // 计算雷诺数
+        const Re = rho * v * D / nu;
+
+        // 使用Swamee-Jain方程计算摩擦系数f
+        const f = 0.25 / (Math.log10(epsilon / (3.7 * D) + 5.74 / (Math.pow(Re, 0.9)))) ** 2;
+
+        // 计算沿程水头损失
+        const hf = f * (L / D) * (v * v) / (2 * g);
+
+        // 显示结果
+        document.getElementById('result').textContent = `沿程水头损失: ${hf.toFixed(2)} 米`;
+        
+        // 更新图表
+        updateChart(D,L,epsilon);
+    }
+
+    function updateChart(D,L,epsilon) {
+        // Generate chart data
+        const flowRates = [0.01, 0.02, 0.03, 0.04, 0.05];
+        // const headLosses = flowRates.map(q => {
+        //     const re = (4 * q) / (pi * pipeDiameter * viscosity);
+        //     const f = 0.079 / (re ** 0.25);
+            // 常数
+        // 计算平均流速
+        const A = Math.PI * D * D / 4;
+       
+
+        const headLosses = flowRates.map(q => {
+                // const re = (4 * q) / (pi * pipeDiameter * viscosity);
+                // 计算雷诺数
+                v = q / A;
+                Re = rho * v * D / nu;
+                f = 0.25 / (Math.log10(epsilon / (3.7 * D) + 5.74 / (Math.pow(Re, 0.9)))) ** 2;
+                return (f *  (L / D) * (v * v) / (2 * g));
+            });
+        // Create the chart
+        const ctx = document.getElementById('headLossChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: flowRates,
+                datasets: [{
+                    label: 'Head Loss (m)',
+                    data: headLosses,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        }); 
+    }
+    
+    
+
+</script>
+
+<h1>灌溉管道水头损失计算器</h1>
+<form onsubmit="event.preventDefault(); calculateHeadLoss();">
+    <label for="flowRate">流量 (m³/s): </label>
+    <input type="number" id="flowRate" step="0.0001" required value="0.02"><br>
+
+    <label for="pipeDiameter">管径 (mm): </label>
+    <input type="number" id="pipeDiameter" step="5"  required value="100"><br>
+
+    <label for="pipeLength">管道长度 (m): </label>
+    <input type="number" id="pipeLength"  step="any" required value="100"><br>
+
+    <label for="roughness">绝对粗糙度 (mm): </label>
+    <input type="number" id="roughness"  step="0.0001" required value="0.001"><br>
+
+    <button type="submit">计算</button>
+</form>
+<p id="result"></p>
+
+<!-- 图表容器 -->
+<canvas id="headLossChart"></canvas>
+
+</html>

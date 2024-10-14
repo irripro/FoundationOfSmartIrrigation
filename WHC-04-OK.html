@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Nodes with Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; }
+        #controls input, #controls button { display: block; margin: 5px 0; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h3>添加节点</h3>
+        <label>X 坐标: <input type="number" id="x" value="0"></label>
+        <label>Y 坐标: <input type="number" id="y" value="10"></label>
+        <label>Z 坐标: <input type="number" id="z" value="0"></label>
+        <button onclick="addNode()">添加节点</button>
+        <button onclick="drawNodes()">绘制节点</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 设置场景、相机和渲染器
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 添加光源
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5).normalize();
+        scene.add(light);
+
+        // 创建并添加地面
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x999999, side: THREE.DoubleSide });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // 初始化相机位置
+        function resetCamera() {
+            const boundingBox = new THREE.Box3().setFromPoints(nodes);
+            const center = boundingBox.getCenter(new THREE.Vector3());
+            const size = boundingBox.getSize(new THREE.Vector3());
+
+            // 计算合适的相机距离以适应所有的节点
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const distance = maxDim * 1; // 可以调整这个乘数来改变视角的远近
+
+            // 更新相机位置
+            camera.position.copy(center).add(new THREE.Vector3(10, 10, distance));
+            camera.lookAt(center);
+        }
+
+        // 渲染循环
+        // function animate() {
+        //     requestAnimationFrame(animate);
+        //     renderer.render(scene, camera);
+        // }
+        
+
+        // 处理窗口大小变化
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        });
+
+        // 存储节点
+        let nodes = [];
+        let pipepoints = [];
+        let lineuppoints = [];
+        let lineupgeometry=[];
+        let headofpipes=[]
+          // 创建并添加标注数字
+        const loader = new THREE.FontLoader();
+        
+        function addNumberLabel(number, position) {
+            loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+            textGeometry = new THREE.TextGeometry(number.toString(), {
+                font: font,
+                size: 0.5,
+                height: 0.1,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.01,
+                bevelSize: 0.01,
+                bevelOffset: 0,
+                bevelSegments: 5
+            });
+        const textMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+
+            const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+            textMesh.position.copy(position);
+            scene.add(textMesh);
+            });
+        }
+
+
+        // 添加节点
+        function addNode() {
+            const x = parseFloat(document.getElementById('x').value);
+            const y = parseFloat(document.getElementById('y').value);
+            const z = parseFloat(document.getElementById('z').value);
+            if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                nodes.push(new THREE.Vector3(x, y, z));
+                pipepoints.push(new THREE.Vector3(x, 0, z));
+                // lineuppoints.push(new THREE.Line((x, 0, z),(x, y, z)))
+                // 创建一个几何体
+                // let lineupgeometry = new THREE.Geometry();
+                // lineupgeometry.vertices.push(
+                // new THREE.Vector3(x, 0, z), // 起点坐标
+                // new THREE.Vector3(x, y, z)  // 终点坐标
+                // );
+                // 创建一个BufferGeometry
+                lineupgeometry.push(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(x, 0, z), // 起点坐标
+                new THREE.Vector3(x, y, z)  // 终点坐标
+                ]));
+                lineupgeometry.push(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(x, 0, z), // 起点坐标
+                new THREE.Vector3(x, y, z)  // 终点坐标
+                ]));
+                // new THREE.poin
+                // headofpipes.push(y); //.push(y);
+
+                console.log("节点已添加:", nodes);
+            } else {
+                alert("请输入有效的数值");
+            }
+        }
+
+        // 绘制节点
+        function drawNodes() {
+            // 清除之前的线条和点
+            while (scene.children.length > 2) { // 保留场景中的地面和光源
+                scene.remove(scene.children[2]);
+            }
+
+            if (nodes.length < 2) {
+                alert("至少需要两个节点才能绘制线段");
+                return;
+            }
+
+            // 创建 BufferGeometry 和顶点数组 lineuppoints
+            const geometry = new THREE.BufferGeometry().setFromPoints(nodes);
+
+            
+
+            // 创建线条材质
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00faaf });
+
+            // 创建线条对象并添加到场景中
+            const line = new THREE.Line(geometry, lineMaterial);
+            scene.add(line);
+
+            // 创建线条对象并添加到场景中
+            // 创建一个材质
+            let material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+
+            // 创建线对象
+            // let lineup = new THREE.Line(lineupgeometry, material);
+            // scene.add(lineup);
+            // for each in lineuppoints
+                // 创建文本几何体（初始化为 null，等待字体加载完成后再设置）
+            let textMesh = null;
+
+            // 加载字体文件 number.toString()
+            const loader = new THREE.FontLoader();
+
+            let lineuppointsLength = lineupgeometry.length;
+            let pipepointsLength=pipepoints.length;
+
+            for (let i = 0; i < lineuppointsLength; i++) {
+                // let poppedPoint = lineuppoints.pop();
+                // 这里可以对 poppedPoint 进行操作
+                // console.log(poppedPoint);
+                lineuppointsgeometry = lineupgeometry.pop();
+                // lineuppointsgeometry = new THREE.BufferGeometry().setFromPoints(poppedPoint);
+                lineupMaterial = new THREE.LineBasicMaterial({ color: 0x808080 });
+                lineup = new THREE.Line(lineuppointsgeometry, lineupMaterial);
+                scene.add(lineup);
+                    
+                //   // 示例：在立方体上方标注数字 "headofpipes.pop"
+                // addNumberLabel(2, new THREE.Vector3(nodes.pop()));
+                loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                const textGeometry = new THREE.TextGeometry("10", {
+                    font: font,
+                    size: 1.5,
+                    height: 0.1,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.01,
+                    bevelSize: 0.01,
+                    bevelOffset: 0,
+                    bevelSegments: 5
+                });
+                const textMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+                if(i < pipepointsLength-1){
+                    const midPoint = new THREE.Vector3().lerpVectors(pipepoints[i+0], pipepoints[i+1], 0.5);
+                    textMesh.position.copy(midPoint);
+                    scene.add(textMesh);
+
+                    // 在直线两端添加文字
+                    const leftLabelGeometry = new THREE.TextGeometry('Left End', {
+                        font: font,
+                        size: 1.5,
+                        height: 0.1
+                    });
+                    const leftLabelMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    const leftLabelMesh = new THREE.Mesh(leftLabelGeometry, leftLabelMaterial);
+                    leftLabelMesh.position.copy(pipepoints[i+0]);
+                    scene.add(leftLabelMesh);
+
+                    const rightLabelGeometry = new THREE.TextGeometry('Right End', {
+                        font: font,
+                        size: 1.5,
+                        height: 0.1
+                    });
+                    const rightLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+                    const rightLabelMesh = new THREE.Mesh(rightLabelGeometry, rightLabelMaterial);
+                    rightLabelMesh.position.copy(pipepoints[i+1]);
+                    scene.add(rightLabelMesh);
+                
+                }
+                
+                
+
+            });
+                
+
+            }
+
+            
+
+            // 创建点材质
+            const pointMaterial = new THREE.PointsMaterial({ color: 0xff0000, size: 0.2 });
+
+            // 创建点对象并添加到场景中
+            const points = new THREE.Points(geometry, pointMaterial);
+            scene.add(points);
+            // 定义路径点
+            // pipepoints =nodes
+            // 使用 map 方法一次性更新数组中所有对象的 y 值为 0
+            // pipepoints = nodes.map(point => ({ ...point, y: 0 }));
+            // # 一次性填充整个数组的 y 值为 0
+            // pipe_points = [{"x": point["x"], "y": 0, "z": point["z"]} for point in pipe_points]
+            // pipepoints=[
+            //         new THREE.Vector3(-10, 0, 10),
+            //         new THREE.Vector3(-15, 0, 20),
+            //         new THREE.Vector3(0, 0, 30),
+            //         new THREE.Vector3(15, 0, 40),
+            //         new THREE.Vector3(10, 0, 50)
+            //         ];
+            
+                    // 创建 BufferGeometry 和顶点数组
+                    // const pipegeometry = new THREE.BufferGeometry().setFromPoints(pipepoints);    
+                    // // 创建点对象并添加到场景中
+
+                    // const pipePoints = new THREE.Points(pipegeometry, pointMaterial);
+                    // 创建曲线
+                    const curve = new THREE.CatmullRomCurve3(pipepoints);
+
+                    // 创建管道
+                    const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.5, 8, false);
+
+                    // 创建材质
+                    const pipeMaterial = new THREE.MeshBasicMaterial({ color: 0xCfCfCf });
+
+                    // 创建网格
+                    const tube = new THREE.Mesh(tubeGeometry, pipeMaterial);
+
+                    // 将网格添加到场景中
+                    scene.add(tube);
+            
+
+        }
+        // 渲染场景
+        // 创建一个几何体来存放点
+        const geometry = new THREE.BufferGeometry().setFromPoints(nodes);
+
+        // 创建材质
+        const material = new THREE.PointsMaterial({ color: 0x00ff00, size: 0.1 });
+        // 创建 Points 对象并赋值给 pointsMesh
+        const pointsMesh = new THREE.Points(geometry, material);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 可以在这里添加动画效果
+            pointsMesh.rotation.x += 0.01;
+            pointsMesh.rotation.y += 0.01;
+
+            renderer.render(scene, camera);
+        }
+          // 窗口大小变化时更新渲染器和相机
+        // window.addEventListener('resize', () => {
+        //     const width = window.innerWidth;
+        //     const height = window.innerHeight;
+        //     renderer.setSize(width, height);
+        //     camera.aspect = width / height;
+        //     camera.updateProjectionMatrix();
+        // });
+
+        // 重置相机位置以适应新的节点分布
+        // resetCamera();
+
+        camera.position.z = 25;
+        camera.position.x = 0;
+        camera.position.y = 0;
+        
+
+          // 窗口大小变化时更新渲染器和相机
+
+        
+        animate();
+
+        // window.addEventListener('resize', () => {
+        //     const width = window.innerWidth;
+        //     const height = window.innerHeight;
+        //     renderer.setSize(width, height);
+        //     camera.aspect = width / height;
+        //     camera.updateProjectionMatrix();
+        // });
+
+        // 设置动画
+        // function pipeAnimate() {
+        // requestAnimationFrame(animate);
+
+        // // 可以在这里添加任何动画代码，例如旋转网格
+        // tube.rotation.x += 0.01;
+        // tube.rotation.y += 0.01;
+
+        // renderer.render(scene, camera);
+        // }
+
+        // // 开始动画
+        // pipeAnimate();
+    </script>
+</body>
+</html>

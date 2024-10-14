@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>复杂供水管网水力分析</title>
+<!-- 引入Chart.js -->
+<script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.7.1/chart.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/chart.js';"> </script>
+
+<style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 5px;
+    }
+    th, td {
+        text-align: center;
+    }
+    canvas {
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+    }
+</style>
+</head>
+<body>
+<h1>复杂供水管网水力分析</h1>
+
+<form onsubmit="event.preventDefault(); displayResults();">
+    <h2>输入每个节点的需求流量 (m³/s):</h2>
+    <ul>
+        <li>节点 A: <input type="number" id="demand-A" value="0.01"  step="0.001" required></li>
+        <li>节点 B: <input type="number" id="demand-B" value="0.02"  step="0.001" required></li>
+        <li>节点 C: <input type="number" id="demand-C" value="0.03" step="0.001" required></li>
+        <li>节点 D: <input type="number" id="demand-D" value="0.04" step="0.001" required></li>
+    </ul>
+    <button type="submit">计算水头损失</button>
+</form>
+
+<div id="result"></div>
+
+<!-- 图表容器 -->
+<canvas id="networkChart" width="400" height="400"></canvas>
+
+<script>
+// 定义网络结构
+const nodes = ['A', 'B', 'C', 'D'];
+const connections = [
+    { from: 'A', to: 'B', length: 100, diameter: 200 },
+    { from: 'B', to: 'C', length: 100, diameter: 200 },
+    { from: 'C', to: 'D', length: 100, diameter: 200 },
+    { from: 'D', to: 'A', length: 100, diameter: 200 }
+];
+
+// 创建邻接矩阵
+const adjacencyMatrix = Array.from({length: nodes.length}, () => Array(nodes.length).fill(0));
+
+// 填充邻接矩阵
+connections.forEach(connection => {
+    const fromIndex = nodes.indexOf(connection.from);
+    const toIndex = nodes.indexOf(connection.to);
+    adjacencyMatrix[fromIndex][toIndex] = [connection.length, connection.diameter];
+    adjacencyMatrix[toIndex][fromIndex] = [connection.length, connection.diameter]; // 环状网是双向的
+});
+
+// 计算水头损失
+function calculateHeadLoss(Q, L, D) {
+    const g = 9.81; // 重力加速度 m/s²
+    const rho = 1000; // 水的密度 kg/m³
+    const nu = 1.004e-6; // 水的动力粘度 m²/s at 20°C
+    const epsilon = 0.0001; // 管道绝对粗糙度 m (假设值)
+
+    D /= 1000; // 将直径转换为米
+    const A = Math.PI * D * D / 4; // 截面积 m²
+    const v = Q / A; // 平均流速 m/s
+
+    // 雷诺数
+    const Re = rho * v * D / nu;
+
+    // 使用Swamee-Jain方程计算摩擦系数f
+    let f;
+    if (Re <2300) {
+        f = 64 / Re  // 层流; // 避免除以零
+
+    } else {
+        f = 0.25 / (Math.log10(epsilon / (3.7 * D) + 5.74 / (Math.pow(Re, 0.9)))) ** 2;
+    }
+
+    // 沿程水头损失
+    const hf = f * (L / D) * (v * v) / (2 * g);
+
+    return hf;
+}
+
+// 使用节点法求解管网
+function solveNetwork(demands) {
+    const numNodes = nodes.length;
+    const numConnections = connections.length;
+
+    // 初始化变量
+    let flows = new Array(numConnections).fill(0);
+    let heads = new Array(numNodes).fill(100); // 初始假设所有节点的水头为100m
+    const tolerance = 1e-6; // 收敛容差
+    const maxIterations = 100; // 最大迭代次数
+    let iteration = 0;
+
+    while (iteration < maxIterations) {
+        const newFlows = new Array(numConnections).fill(0);
+        const newHeads = new Array(numNodes).fill(0);
+
+        // 更新每个连接的流量
+        for (let i = 0; i < numConnections; i++) {
+            const { from, to } = connections[i];
+            const fromIndex = nodes.indexOf(from);
+            const toIndex = nodes.indexOf(to);
+            const headDifference = heads[fromIndex] - heads[toIndex];
+            const [L, D] = adjacencyMatrix[fromIndex][toIndex];
+            const hf = calculateHeadLoss(flows[i], L, D);
+            if (hf !== 0) {
+                newFlows[i] = headDifference / hf;
+            } else {
+                newFlows[i] = 0; // 避免除以零
+            }
+        }
+
+        // 更新每个节点的水头
+        for (let i = 0; i < numNodes; i++) {
+            let totalFlow = 0;
+            for (let j = 0; j < numConnections; j++) {
+                if (connections[j].from === nodes[i]) {
+                    totalFlow += newFlows[j];
+                } else if (connections[j].to === nodes[i]) {
+                    totalFlow -= newFlows[j];
+                }
+            }
+            newHeads[i] = heads[i] + (demands[i] - totalFlow) * 0.1; // 用一个小步长更新
+        }
+
+        // 检查收敛
+        let maxChange = 0;
+        for (let i = 0; i < numNodes; i++) {
+            maxChange = Math.max(maxChange, Math.abs(newHeads[i] - heads[i]));
+        }
+        if (maxChange < tolerance) {
+            break;
+        }
+
+        // 更新状态
+        flows = newFlows;
+        heads = newHeads;
+        iteration++;
+    }
+
+    return { flows, heads };
+}
+
+// 显示结果
+function displayResults() {
+    const demands = [];
+    for (let i = 0; i < nodes.length; i++) {
+        const demandInput = document.getElementById(`demand-${nodes[i]}`);
+        demands.push(parseFloat(demandInput.value));
+    }
+
+    const { flows, heads } = solveNetwork(demands);
+    const headLosses = flows.map((Q, i) => {
+        const [L, D] = adjacencyMatrix[nodes.indexOf(connections[i].from)][nodes.indexOf(connections[i].to)];
+        return calculateHeadLoss(Q, L, D);
+    });
+
+    // 更新表格
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // 表头
+    const headerRow = document.createElement('tr');
+    ['管段', '起点', '终点', '长度 (m)', '直径 (mm)', '流量 (m³/s)', '水头损失 (m)'].forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    // 表格主体
+    connections.forEach((conn, i) => {
+        const row = document.createElement('tr');
+        [i + 1, conn.from, conn.to, conn.length, conn.diameter, flows[i].toFixed(2), headLosses[i].toFixed(2)].forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('result').appendChild(table);
+
+    // 更新联接图
+    updateNetworkChart(headLosses, flows, heads);
+}
+
+// 更新联接图
+function updateNetworkChart(headLosses, flows, heads) {
+    new Chart(document.getElementById('networkChart'), {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Nodes',
+                    data: [
+                        { x: 0, y: 0, r: 10, label: `A (${heads[0].toFixed(2)}m)` },
+                        { x: 100, y: 0, r: 10, label: `B (${heads[1].toFixed(2)}m)` },
+                        { x: 100, y: 100, r: 10, label: `C (${heads[2].toFixed(2)}m)` },
+                        { x: 0, y: 100, r: 10, label: `D (${heads[3].toFixed(2)}m)` }
+                    ],
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    pointRadius: 10,
+                    pointHoverRadius: 15
+                },
+                {
+                    label: 'Connections',
+                    data: [
+                        { x: 0, y: 0, x1: 100, y1: 0, label: `A-B (${flows[0].toFixed(2)} m³/s, ${headLosses[0].toFixed(2)}m)` },
+                        { x: 100, y: 0, x1: 100, y1: 100, label: `B-C (${flows[1].toFixed(2)} m³/s, ${headLosses[1].toFixed(2)}m)` },
+                        { x: 100, y: 100, x1: 0, y1: 100, label: `C-D (${flows[2].toFixed(2)} m³/s, ${headLosses[2].toFixed(2)}m)` },
+                        { x: 0, y: 100, x1: 0, y1: 0, label: `D-A (${flows[3].toFixed(2)} m³/s, ${headLosses[3].toFixed(2)}m)` }
+                    ],
+                    showLine: true,
+                    lineTension: 0,
+                    fill: false,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: { beginAtZero: true, suggestedMax: 120 },
+                y: { beginAtZero: true, suggestedMax: 120 }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label === 'Nodes') {
+                                label += ` (${context.parsed.x}, ${context.parsed.y})`;
+                            } else if (label === 'Connections') {
+                                const dataIndex = context.dataIndex;
+                                label += ` Flow: ${flows[dataIndex]} m³/s, Head Loss: ${headLosses[dataIndex].toFixed(2)} m`;
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+</body>
+</html>

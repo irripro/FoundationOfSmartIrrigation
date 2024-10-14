@@ -14,32 +14,39 @@
 </head>
 <body>
     <div class="container">
-        <h1>Water Head Loss Calculator</h1>
+        <h1>水头损失计算器 Water Head Loss Calculator</h1>
         <form id="headLossForm">
-            <label for="flowRate">Flow Rate (m³/s):</label>
-            <input type="number" step="0.01" id="flowRate" required><br><br>
+            <label for="flowRate">流量 Flow Rate (m³/s):</label>
+            <input type="number" step="0.01" id="flowRate" required value="0.03"><br><br>
 
-            <label for="pipeDiameter">Pipe Diameter (m):</label>
-            <input type="number" step="0.01" id="pipeDiameter" required><br><br>
+            <label for="pipeDiameter">管道直径 Pipe Diameter (m):</label>
+            <input type="number" step="0.01" id="pipeDiameter" required value="0.1"><br><br>
 
-            <label for="pipeLength">Pipe Length (m):</label>
-            <input type="number" step="0.01" id="pipeLength" required><br><br>
+            <label for="pipeLength">管道长度 Pipe Length (m):</label>
+            <input type="number" step="0.01" id="pipeLength" required value="100"><br><br>
 
-            <label for="viscosity">Viscosity (Pa·s):</label>
-            <input type="number" step="0.00000001" id="viscosity" required><br><br>
+            <label for="viscosity">流体粘度 Viscosity (Pa·s):</label>
+            <input type="number" step="0.00000001" id="viscosity" required value="0.0002"><br><br>
 
-            <label for="roughness">Roughness (m):</label>
-            <input type="number" step="0.00000001" id="roughness" required><br><br>
+            <label for="roughness">管道粗糙度 Roughness (m):</label>
+            <input type="number" step="0.00000001" id="roughness" required value="0.0001"><br><br>
 
-            <button type="submit">Calculate</button>
+            <button type="submit">计算 Calculate</button>
         </form>
         <div class="result" id="result"></div>
         <canvas id="headLossChart"></canvas>
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        let chartInstance = null;
+
         document.getElementById('headLossForm').addEventListener('submit', function(event) {
             event.preventDefault();
+
+            // 销毁之前的图表实例（如果有）
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
 
             const flowRate = parseFloat(document.getElementById('flowRate').value);
             const pipeDiameter = parseFloat(document.getElementById('pipeDiameter').value);
@@ -66,7 +73,7 @@
 
             // Create the chart
             const ctx = document.getElementById('headLossChart').getContext('2d');
-            const myChart = new Chart(ctx, {
+            chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: flowRates,
@@ -87,5 +94,6 @@
             });
         });
     </script>
+
 </body>
 </html>

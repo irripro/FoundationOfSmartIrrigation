@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Three.js Line with Animated Number</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+   
+  <script>
+    // 创建场景、相机和渲染器
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 创建直线几何体
+    const points = [];
+    points.push(new THREE.Vector3(-5, 0, 0));
+    points.push(new THREE.Vector3(5, 0, 0));
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+    const line = new THREE.Line(geometry, material);
+    scene.add(line);
+
+    // 创建字体加载器
+    const loaderManager = new THREE.LoadingManager();
+    const fontLoader = new THREE.FontLoader(loaderManager);
+
+    // 创建文本几何体（初始化为 null，等待字体加载完成后再设置）
+    let textMesh = null;
+
+    // 加载字体文件 number.toString()
+    const loader = new THREE.FontLoader();
+
+    loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+      const textGeometry = new THREE.TextGeometry("100", {
+        font: font,
+        size: 0.5,
+        height: 0.1,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.01,
+        bevelSize: 0.01,
+        bevelOffset: 0,
+        bevelSegments: 5
+      });
+      const textMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      const midPoint = new THREE.Vector3().lerpVectors(points[0], points[1], 0.5);
+      textMesh.position.copy(midPoint);
+      scene.add(textMesh);
+
+      
+      // 在直线两端添加文字
+      const leftLabelGeometry = new THREE.TextGeometry('Left End', {
+        font: font,
+        size: 0.5,
+        height: 0.1
+      });
+      const leftLabelMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const leftLabelMesh = new THREE.Mesh(leftLabelGeometry, leftLabelMaterial);
+      leftLabelMesh.position.copy(points[0]);
+      scene.add(leftLabelMesh);
+
+      const rightLabelGeometry = new THREE.TextGeometry('Right End', {
+        font: font,
+        size: 0.5,
+        height: 0.1
+      });
+      const rightLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+      const rightLabelMesh = new THREE.Mesh(rightLabelGeometry, rightLabelMaterial);
+      rightLabelMesh.position.copy(points[1]);
+      scene.add(rightLabelMesh);
+    });
+    // 渲染循环
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    // 动画函数
+    // function animate() {
+    //   requestAnimationFrame(animate);
+    //   // 更新文本内容
+    //   if (textMesh && textMesh.geometry && textMesh.geometry.parameters && textMesh.geometry.parameters.font) {
+    //     const t = Date.now() * 0.001;
+    //     textMesh.geometry = new THREE.TextGeometry(String(Math.sin(t) * 10), {
+    //       font: textMesh.geometry.parameters.font,
+    //       size: 1,
+    //       height: 0.1
+    //     });
+    //   }
+    //   renderer.render(scene, camera);
+    // }
+
+    camera.position.z =   15;
+    animate();
+  </script>
+</body>
+
+</html>

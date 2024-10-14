@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>管道长度与水头损失计算器</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  .container { max-width: 900px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+  textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
+  .result { margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>管道沿程水头损失计算器</h2>
+ 
+  <p>请输入管道节点坐标、流量及局部损失系数 (每行一个节点坐标 x,y,z（m）, 节点出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）。例如: 0,0,0,40,0.05,100)：</p>
+  <p>
+    局部阻力系数综合考虑了形状因素。在具体应用中，k值可能需要参考相关水利学手册或通过实验确定。
+  </p>
+  <textarea id="coordinates" rows="10"></textarea>
+  <p><h3>请选择水头损失计算公式：</h3></p>
+  <select id="formula">
+    <option value="darcy-weisbach">达西-魏斯巴赫 darcy-weisbach</option>
+    <option value="hazen-williams">哈森-威廉姆斯 hazen-williams</option>
+  </select>
+  <p><h3>主管管道内径 (mm)：</h3></p>
+  <input type="number" id="diameter" value="100" step="1" required>
+  <!-- <p><h3>流量 (m³/h)：</h3></p>
+  <input type="number" id="flowRate" value="40" step="any" required> -->
+  <p><h3>20 ℃ 流体密度 (kg/m³) [仅用于达西-魏斯巴赫]：</h3></p>
+  <input type="number" id="density" value="1000" step="10">
+  <p><h3>流体粘度 (Pa·s) [仅用于达西-魏斯巴赫]：</h3></p>
+  <input type="number" id="viscosity" value="0.001" step="0.0001">
+  <p>1. 塑料<br>
+    ~ 塑料管道（如PVC管等）的粗糙度相对较小。对于光滑的塑料管道，其等效粗糙度值通常在(0.0015 ~ 0.01)mm之间。在水力计算中，这种较小的粗糙度使得塑料管道在相同流量下产生的沿程水头损失相对较小。
+    <br>2. 钢铁<br>
+    ~ 新的、光滑的钢管粗糙度值约为(0.046 ~ 0.1)mm。但随着使用时间的增加，由于腐蚀、结垢等原因，粗糙度可能会显著增加。例如，旧钢管的粗糙度可能达到(1 ~ 2)mm甚至更高。在水力计算时，粗糙度的变化会对沿程水头损失的计算结果产生很大影响。
+    <br>3. 砼（混凝土）<br>
+    ~ 普通混凝土管道的粗糙度值大约在(0.3 ~ 3)mm之间。如果混凝土表面处理较为粗糙值会偏向较大值；如果进行了较为精细的抹面等处理，(roughness)值可能会接近(0.3)mm。这一粗糙度值在水力计算中对确定混凝土管道的输水能力和水头损失起着重要作用。
+    <br>4. 石棉<br>
+    ~ 石棉水泥管的粗糙度值大概在(0.03 ~ 0.15)mm范围内。在水力计算时，需要根据石棉水泥管的实际生产工艺和使用状况确定其粗糙度取值，以准确计算沿程水头损失等水力参数。</p>
+  <p><h3>管道粗糙度 (mm) [仅用于达西-魏斯巴赫]：</h3></p>
+  <input type="number" id="roughness" value="0.2" step="0.1">
+  <p>塑料管（如PVC, PE, PP等）: 通常取值为 150<br>
+    新铸铁管: 通常取值为 130<br>
+    旧铸铁管和旧钢管: 通常取值为 100<br>
+    混凝土管（砼）: 通常取值为 120<br>
+    石棉水泥管: 通常取值为 130 到 140 之间，具体取决于管道的新旧程度和表面状况。</p>
+  <p><h3>C系数 [仅用于哈森-威廉姆斯：</h3></p>
+  <input type="number" id="cFactor" value="130" step="10">
+  <button onclick="calculate()"><h2>计算</h2></button>
+  
+  <div class="piperesult" id="piperesult"></div>
+ 
+  <div class="headlossresult" id="headlossresult"></div>
+  <p ></p>
+
+  <div class="result" id="result"></div>
+  
+  <canvas id="headLossChart" width="1024" height="400"></canvas>
+  <canvas id="chartContainer" width="1024" height="400"></canvas>
+</div>
+  <!-- 引入 Chart.js UMD 版本 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+<!-- src="calculator.js" -->
+<script >
+     
+    const gravity = 9.81; // 重力加速度
+    // 保存对 Chart.js 实例的引用 chart1Instance
+    let chartInstance = null;
+    let chart1Instance = null;
+    function calculateDarcyWeisbach( frictionFactor, pipeLength, pipeDiameter, fluidVelocity) {
+        const gravity = 9.81; // 重力加速度 (m/s^2)
+        
+        // 计算摩擦引起的压力头损失
+        headLoss = frictionFactor * (pipeLength / pipeDiameter) * (Math.pow(fluidVelocity, 2) / (2 * gravity));
+        
+        return headLoss;
+    }
+    function calculateFrictionFactor(roughness, diameter, reynolds) {
+        let f = 0.01; // 初始猜测值
+        let error = 1e-6; // 定义误差容忍度
+        let iterations = 0;
+        let maxIterations = 1000;
+
+        if (reynolds < 2300) { // 层流
+            f = 64 / reynolds;
+        } else if (reynolds > 4000) { // 湍流
+            if (roughness === 0) { // 假设光滑管
+            f = 0.079 * Math.pow(reynolds, -0.25);
+            } else { // 粗糙管
+            const epsilonOverD = roughness / diameter;
+            f = 1 / (2 * Math.log10(epsilonOverD / 3.7 + 2.51 / reynolds)) ** 2;
+            // const epsilonOverD = roughness / diameter;
+            }
+        }else{
+            while (iterations < maxIterations) {
+                let f1 = -2 * Math.log10((roughness / (3.7 * diameter)) + (2.51 / (reynolds * Math.sqrt(f))));
+                let df = f1 - f;
+                f = f1;
+                
+                if (Math.abs(df) < error) {
+                    break;
+                }
+                
+                iterations++;
+            }
+        }
+        return f;
+    }
+
+
+    // 更新图表 cumulativeHeadLoss， totalLength
+    function updateChart(nodes, cumulativeHeadLoss, PipeLength) {
+        const chartCanvas = document.getElementById('chartContainer');
+        const ctx = chartCanvas.getContext('2d');
+
+        // 销毁之前的图表实例
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        // 从 nodes 数组中移除第一个元素
+        // nodes.shift();
+
+        // 创建新的图表实例
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: nodes.map((_, index) => `${index}-管段长： ${PipeLength[index].toFixed(2)} m`), // 节点标签
+                datasets: [{
+                    label: '水头损失 (m)',
+                    data: cumulativeHeadLoss.map((value, index) => ({
+                        x: PipeLength[index],
+                        y: value-nodes[index].z
+                    })),
+                    fill: true,
+                    borderColor: 'rgb(75, 94, 232)',
+                    // fillColor: 'rgb(75, 94, 222)',
+                    borderWidth: 3, // 线条宽度
+                    borderDash: [16, 2,5,2], // 虚线模式，数组第一项是 dash 的长度，第二项是 gap 的长度
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)', // 数据点背景色（如果需要）
+                    pointBorderColor: 'rgba(75, 192, 192, 1)', // 数据点边框颜色
+                    pointBackgroundColor: '#fff', // 数据点背景色
+                    tension: 0.1
+                },
+                // {
+                //     label: '', // 这个标签可以隐藏 辅助数据 (仅用于填充)
+                //     data: cumulativeHeadLoss.map((y, index) => ({ x: PipeLength[index], y: y-nodes[index].z })),
+                //     fill: 'bottom', // 或者使用'bottom'/'top'根据需要origin
+                //     backgroundColor: 'rgba(75, 94, 222, 0.2)', // 辅助填充的颜色和透明度
+                //     borderColor: 'transparent', // 边框颜色设置为透明
+                //     pointRadius: 5, // 不显示数据点
+                //     showLine: true, // 不显示辅助线
+                // },
+            ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '管段长度 (m)'
+                        },
+                        beginAtZero: true
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '水头损失 (m)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const { x, y } = context.parsed;
+                                return `Hloss: ${y.toFixed(3)} m, Node: ${x.toFixed(0)} `;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+ 
+function calculateAndPlot(pipeLengths,headLoss,nodes) {
+    // const frictionFactor = parseFloat(document.getElementById('frictionFactor').value);
+    // const pipeLength = parseFloat(document.getElementById('pipeLength').value);
+    // const flowRate = parseFloat(document.getElementById('flowRate').value);
+    // const pipeDiameter = parseFloat(document.getElementById('pipeDiameter').value);
+
+    // const headLoss = calculateHeadLoss(frictionFactor, pipeLength, flowRate, pipeDiameter);
+    
+    
+    // 绘制图表
+    const ctx = document.getElementById('headLossChart').getContext('2d');
+    if (chart1Instance) {
+            chart1Instance.destroy();
+        }
+    chart1Instance =new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: pipeLengths.map((_, index) => ` ${pipeLengths[index].toFixed(2)} `) , //[0,pipeLength ], //'L ${pipeLength[index].toFixed(2)} m}', // 假设只展示起点和终点
+            datasets: [{
+                    label: '沿程总水头 (m)',
+                    data: headLoss.map((value, index) => ({
+                        x: pipeLengths[index],
+                        y: value
+                    })),
+                    fill: false,
+                    borderColor: 'rgb(75, 192, 209)',
+                    
+                    tension: 0.1
+                }, 
+                {
+                    label: '地面高程z (m)',
+                    data: nodes.map((value, index) => ({
+                        x: pipeLengths[index],
+                        y: value.z
+                    })),
+                    fill: true,
+                    borderColor: 'rgb(15, 230 20)',
+                    borderWidth: 3, // 线条宽度
+                    borderDash: [5, 5], // 虚线模式，数组第一项是 dash 的长度，第二项是 gap 的长度
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)', // 数据点背景色（如果需要）
+                    pointBorderColor: 'rgba(75, 192, 192, 1)', // 数据点边框颜色
+                    pointBackgroundColor: '#fff', // 数据点背景色
+                    tension: 0.1
+                }],
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '水头线 (m)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '管道纵断面（m）'
+                    }
+                }
+            },
+            plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const { x, y } = context.parsed;
+                                return `（H/Z）: ${y.toFixed(3)} m, Node:${x.toFixed(0)} `;
+                            }
+                        }
+                    }
+            },
+            annotation: {
+                annotations: {
+                    line1: {
+                        adjustScaleRange: false,
+                        drawTime: 'afterDraw',
+                        display: true,
+                        type: 'line',
+                        // data: dataPoints.map(point => ({ x: point.x, y: point.y })),
+                        xValue: nodes[1].x, // X 轴上的值
+                        yValue: nodes[1].y,
+                        x1: nodes[1].x+10, // X 轴
+                        y1: nodes[1].y+10,// Y 轴
+                        borderColor: 'rgba(104,166,214,0.5)',
+                        borderWidth: 2,
+                        label: {
+                            enabled: true,
+                            content: 'Midpoint',
+                            position: 'top'
+                        }
+                    }
+                }
+            }
+        }
+        
+    });
+}
+
+function calculate() {
+    
+    let coordinatesInput = document.getElementById('coordinates').value;
+    
+    const formula = document.getElementById('formula').value;
+    let diameter = parseFloat(document.getElementById('diameter').value)/1000;
+    // const flowRate = parseFloat(document.getElementById('flowRate').value)/3600;
+
+
+    const density = parseFloat(document.getElementById('density').value) || 1000; // 默认为水的密度
+    const viscosity = parseFloat(document.getElementById('viscosity').value) || 0.001; // 默认为水的动力粘度
+    const roughness = parseFloat(document.getElementById('roughness').value) /1000; // 默认值
+    const cFactor = parseFloat(document.getElementById('cFactor').value) || 130; // 默认C系数
+  
+    // 解析坐标输入
+    // const lines = coordinatesInput.trim().split('\n');
+    // const nodes = lines.map(line => line.split(',').map(Number));
+    // 解析坐标输入
+    const lines = coordinatesInput.trim().split('\n');
+    if (lines.length < 2) {
+        // 数据长度不足，提示用户并清空或重新请求输入
+        alert("管段数据不足，请确保输入了至少2行的坐标信息后重新提交。");
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+    }
+    const nodes = lines.map(line => {
+      const [x, y, z, q,k,D] = line.split(',').map(Number);
+      
+      return { x, y, z, q,k,D };
+    });
+    for(let i=1;i<nodes.length;i++){
+        if (typeof nodes[i].x != 'number' || isNaN(nodes[i].x)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].x}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        }   
+        if (typeof nodes[i].y != 'number' || isNaN(nodes[i].y)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].y}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        }  
+        if (typeof nodes[i].z != 'number' || isNaN(nodes[i].z)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].z}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        }  
+        if (typeof nodes[i].q != 'number' || isNaN(nodes[i].q)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].q}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        }  
+        if (typeof nodes[i].k != 'number' || isNaN(nodes[i].k)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].k}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        
+        // coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        }  
+        if (typeof nodes[i].D != 'number' || isNaN(nodes[i].D)) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].D}]错误，请确保每行输入了至少6列（坐标 x,y,z（m）, 末端出流量 q（m³/h）, 局部损失系数 k, 管段直径 d （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        // document.getElementById("coordinates").value = "";
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        } 
+        if (nodes[i].D < 1) {
+        // 数据错误，提示用户并清空或重新请求输入
+            let msg = `管段 ${i} 的数据[${nodes[i].D}]错误，直径 d>1 （mm）），然后重新提交。`;
+            alert(msg);
+        // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+        // document.getElementById("coordinates").value = "";
+        
+        // 或者触发重新输入的逻辑
+        return; // 结束当前函数执行，避免处理不完整数据
+        } 
+    }
+    
+    // 总流量计算
+    let flowRate=0
+    const nodeq=[]
+    let q=0;
+    for (let i = 0; i < nodes.length ; i++) {
+      flowRate += nodes[i].q;
+      q += nodes[i].q/3600
+      nodeq.push(q)
+    }
+
+    flowRate=flowRate/3600;
+        // 清除之前的管道模型
+    // while (scene.children.length > 3) { // 保留坐标轴
+    //   scene.remove(scene.children[3]);
+    // }
+    // 分段管长度
+    let Length = 0;
+    let headLoss=0;
+    const pipeLength=[];
+    const pipeLengths=[];
+    const pipeHeadloss=[];
+    
+
+    let Lengths=0
+    // let headLoss=0
+    // pipeLength[0]=0
+    // pipeHeadloss[0]=0
+    pipeLength.push(0);
+    pipeLengths.push(0);
+    pipeHeadloss.push(nodes[0].z);
+    
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const dx = nodes[i + 1].x - nodes[i].x;
+      const dy = nodes[i + 1].y - nodes[i].y;
+      const dz = nodes[i + 1].z - nodes[i].z;
+      Length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      Lengths += Length
+      pipeLength.push(Length);
+      pipeLengths.push(Lengths);
+
+      // pipeLength[i]=Length;
+      // 计算流速
+    }
+
+    let sumheadLoss=nodes[0].z;
+    let dz;
+    for (let i = 0; i < nodes.length-1 ; i++) {
+        pipediameter=nodes[i+1].D/1000
+      const pipeCrossSectionalArea = Math.PI * (pipediameter / 2) ** 2;
+      const pipeVelocity = (flowRate-nodeq[i] )/ pipeCrossSectionalArea;
+      //局部水头损失
+      let hk=nodes[i].k*pipeVelocity*pipeVelocity/(2*gravity);
+        // if(i === 0) {
+        //     dz = 0; //nodes[i].z;
+        // } else {
+            dz = nodes[i+1].z - nodes[i].z;
+        // }
+      if (formula === 'darcy-weisbach') {
+    
+        // 雷诺数
+        const reynoldsNumber = (density * pipeVelocity * pipediameter) / viscosity;
+        
+        frictionFactor=calculateFrictionFactor(roughness, pipediameter, reynoldsNumber)
+        headLoss = calculateDarcyWeisbach(frictionFactor, pipeLength[i+1], pipediameter, pipeVelocity);
+        sumheadLoss=sumheadLoss+headLoss+hk+dz; //+nodes[i+1].z
+        pipeHeadloss.push(sumheadLoss);
+        // pipeHeadloss[i]=headLoss;
+
+      } else if (formula === 'hazen-williams') {
+
+          // const pipeCrossSectionalArea = Math.PI * (diameter / 2) ** 2;
+
+        // 使用哈森-威廉姆斯公式计算水头损失  10.67 * Math.pow(Q, 1.852) * Math.pow(C, -1.852) * Math.pow(D, -4.87) * L;
+          headLoss = 10.67  * Math.pow((flowRate-nodeq[i] ), 1.852) * Math.pow(cFactor, -1.852) * Math.pow(pipediameter, -4.87) * pipeLength[i+1];
+        //   pipeHeadloss.push(headLoss);
+          sumheadLoss=sumheadLoss+headLoss+hk+dz; //+nodes[i+1].z
+            pipeHeadloss.push(sumheadLoss);
+          // pipeHeadloss[i]=headLoss;
+        }
+
+    }
+
+
+
+    const resultPipeElement = document.getElementById('piperesult');
+    resultPipeElement.innerHTML =`每条管段：<br/>`;
+    for (let i = 0; i < nodes.length - 1; i++) {
+      resultPipeElement.innerHTML += `管段长: ${ pipeLength[i+1].toFixed(2)} m<br/>`;
+      resultPipeElement.innerHTML += `管段管径: ${ nodes[i+1].D.toFixed(2)} mm<br/>`;
+      resultPipeElement.innerHTML += `管段水头损失: ${ (pipeHeadloss[i+1]-nodes[i+1].z).toFixed(3)} m<br/>`;
+    }
+
+    const resultHeadlossElement = document.getElementById('headlossresult');
+    resultHeadlossElement.innerHTML =`<br/>总水头线：<br/>`;
+    for (let i = 0; i < nodes.length ; i++) {
+      resultHeadlossElement.innerHTML += `节点 ${i} 高程 ：  ${ nodes[i].z.toFixed(3)} m<br/>`;
+      resultHeadlossElement.innerHTML += `节点 ${i} 水头 ：  ${ pipeHeadloss[i].toFixed(3)} m<br/>`;
+      resultHeadlossElement.innerHTML += `节点 ${i} 的出流量  ：  ${ nodes[i].q.toFixed(2)} m³/h<br/>`;
+    }
+
+    
+    // 计算总长度
+    let totalLength = 0;
+    for (let i = 0; i < nodes.length - 1; i++) {
+
+      const dx = nodes[i + 1].x - nodes[i].x;
+      const dy = nodes[i + 1].y - nodes[i].y;
+      const dz = nodes[i + 1].z - nodes[i].z;
+      totalLength += Math.sqrt(dx * dx + dy * dy + dz * dz);
+      
+    }
+  
+    // 根据公式计算水头损失
+
+    // 计算流速
+    const crossSectionalArea = Math.PI * (diameter / 2) ** 2;
+    const velocity = flowRate / crossSectionalArea;
+
+    if (formula === 'darcy-weisbach') {
+   
+        // 雷诺数
+        const reynoldsNumber = (density * velocity * diameter) / viscosity;
+        
+        frictionFactor=calculateFrictionFactor(roughness, diameter, reynoldsNumber)
+        headLoss = calculateDarcyWeisbach(frictionFactor, totalLength, diameter, velocity);
+
+    } else if (formula === 'hazen-williams') {
+
+
+      // 使用哈森-威廉姆斯公式计算水头损失  10.67 * Math.pow(Q, 1.852) * Math.pow(C, -1.852) * Math.pow(D, -4.87) * L;
+        headLoss = 10.67  * Math.pow(flowRate, 1.852) * Math.pow(cFactor, -1.852) * Math.pow(diameter, -4.87) * totalLength;
+   }
+   flowRate=flowRate*3600;
+   diameter=diameter*1000;
+
+    // 显示结果 
+    const resultElement = document.getElementById('result');
+    resultElement.innerHTML = `<br/>全程管道总长度: ${totalLength.toFixed(2)} m<br/>`;
+    resultElement.innerHTML += `用最大流量计算总水头损失: ${headLoss.toFixed(2)} m<br/>`;
+    resultElement.innerHTML += `假定管道不变的直径: ${diameter.toFixed(2)} mm<br/>`;
+    resultElement.innerHTML += `计算用总流量: ${flowRate.toFixed(2)} m³/h<br/>`;
+    resultElement.innerHTML += `最大总流量的管道流速: ${velocity.toFixed(2)} m/s<br/>`;
+     // 更新图表 pipeHeadloss
+     updateChart(nodes, pipeHeadloss,   pipeLength) ;
+     calculateAndPlot(pipeLengths,pipeHeadloss,nodes);
+
+}
+
+</script>
+</body>
+</html>

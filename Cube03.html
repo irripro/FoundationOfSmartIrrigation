@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Three.js Wireframe</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <input type="number" id="inputValue">
+<button onclick="createWireframe()">Create Wireframe</button>
+
+    <div id="container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const container = document.getElementById('container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+container.appendChild(renderer.domElement);
+
+function createWireframe() {
+    const inputValue = document.getElementById('inputValue').value;
+    // 清除旧的线框图
+    scene.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+            scene.remove(child);
+        }
+    });
+    const geometry = new THREE.BoxGeometry(inputValue, inputValue, inputValue);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+    const wireframe = new THREE.Mesh(geometry, material);
+    scene.add(wireframe);
+    renderer.render(scene, camera);
+}
+
+camera.position.z = 5;
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+}
+animate();
+
+        </script>
+
+</body>
+
+</html>

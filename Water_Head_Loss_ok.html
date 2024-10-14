@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>沿程水头损失计算器</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+    textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
+    .result { margin-top: 20px; }
+    #canvas3D, #chartContainer { display: block; margin: 20px auto; background-color: #f0f0f0; }
+    .node-label { position: absolute; color: white; font-size: 12px; pointer-events: none; }
+  </style>
+  <!-- 引入 Three.js 库 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- 引入 Chart.js UMD 版本 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="container">
+  <h2>沿程水头损失计算器</h2>
+  <p>请输入管道节点坐标、流量及局部损失系数 (每行一个坐标 x,y,z, 流量 q, 局部损失系数 k, 例如: 0,0,0,0.1,0.05)：</p>
+  <textarea id="coordinates" rows="10"></textarea>
+  <p>管道内径 (m)：</p>
+  <input type="number" id="diameter" step="any" required>
+  <p>请选择水头损失计算公式：</p>
+  <select id="formula">
+    <option value="darcy-weisbach">达西-魏斯巴赫方程</option>
+    <option value="hazen-williams">哈森-威廉姆斯公式</option>
+  </select>
+  <button onclick="calculate()">计算</button>
+  <div class="result" id="result"></div>
+</div>
+
+<canvas id="canvas3D" width="800" height="600"></canvas>
+<canvas id="chartContainer" width="800" height="400"></canvas>
+
+<script>
+  // 保存对 Chart.js 实例的引用
+  let chartInstance = null;
+
+  // Three.js 初始化
+  const canvas3D = document.getElementById('canvas3D');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, canvas3D.width / canvas3D.height, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas3D });
+  renderer.setSize(canvas3D.width, canvas3D.height);
+
+  // 设置相机位置
+  camera.position.set(0, 0,200);
+  camera.lookAt(scene.position);
+
+  // 添加光源
+  const light = new THREE.DirectionalLight(0xffffff, 1.0);
+  light.position.set(100, 100, 100);
+  scene.add(light);
+
+  // 绘制坐标轴
+  function drawAxis() {
+    const axisLength = 10;
+    const axisMaterial = new THREE.LineBasicMaterial({ linewidth: 2 });
+
+    // X轴
+    const xAxisGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(axisLength, 0, 0)
+    ]);
+    const xAxis = new THREE.LineSegments(xAxisGeometry, new THREE.LineBasicMaterial({ color: 0xff0000 }));
+
+    // Y轴
+    const yAxisGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, axisLength, 0)
+    ]);
+    const yAxis = new THREE.LineSegments(yAxisGeometry, new THREE.LineBasicMaterial({ color: 0x00ff00 }));
+
+    // Z轴
+    const zAxisGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, axisLength)
+    ]);
+    const zAxis = new THREE.LineSegments(zAxisGeometry, new THREE.LineBasicMaterial({ color: 0x0000ff }));
+
+    scene.add(xAxis);
+    scene.add(yAxis);
+    scene.add(zAxis);
+
+    // 添加文字刻度
+    addTextLabels(axisLength);
+  }
+
+  // 添加文字刻度
+  function addTextLabels(axisLength) {
+    const labels = [
+      { text: 'X', position: new THREE.Vector3(axisLength / 2, -1, 0) },
+      { text: 'Y', position: new THREE.Vector3(-1, axisLength / 2, 0) },
+      { text: 'Z', position: new THREE.Vector3(-1, -1, axisLength / 2) }
+    ];
+
+    labels.forEach(label => {
+      const loader = new THREE.FontLoader();
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+        const geometry = new THREE.TextGeometry(label.text, {
+          font: font,
+          size: 0.5,
+          height: 0.1
+        });
+        const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.copy(label.position);
+        scene.add(mesh);
+      });
+    });
+  }
+
+  // 渲染场景
+  function renderScene() {
+    renderer.render(scene, camera);
+  }
+
+  // 计算沿程水头损失
+  function calculate() {
+    const coordinatesInput = document.getElementById('coordinates').value;
+    const diameter = parseFloat(document.getElementById('diameter').value);
+    const formula = document.getElementById('formula').value;
+
+    // 解析坐标输入
+    const lines = coordinatesInput.trim().split('\n');
+    const nodes = lines.map(line => {
+      const [x, y, z, q, k] = line.split(',').map(Number);
+      return { x, y, z, q, k };
+    });
+
+    // 清除之前的管道模型
+    while (scene.children.length > 3) { // 保留坐标轴
+      scene.remove(scene.children[3]);
+    }
+
+    // 创建管道模型
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const geometry = new THREE.CylinderGeometry(diameter / 2, diameter / 2, 1, 32);
+      const material = new THREE.MeshBasicMaterial({ color: 0x0000ff, transparent: true, opacity: 0.5 });
+      const cylinder = new THREE.Mesh(geometry, material);
+
+      // 计算方向向量
+      const direction = new THREE.Vector3(
+        nodes[i + 1].x - nodes[i].x,
+        nodes[i + 1].y - nodes[i].y,
+        nodes[i + 1].z - nodes[i].z
+      ).normalize();
+
+      // 计算旋转四元数
+      const up = new THREE.Vector3(0, 1, 0);
+      const rotation = new THREE.Quaternion().setFromUnitVectors(up, direction);
+
+      // 设置位置和旋转
+      cylinder.position.set((nodes[i].x + nodes[i + 1].x) / 2, (nodes[i].y + nodes[i + 1].y) / 2, (nodes[i].z + nodes[i + 1].z) / 2);
+      cylinder.quaternion.copy(rotation);
+
+      // 设置长度
+      const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+      cylinder.scale.set(1, length, 1);
+
+      scene.add(cylinder);
+    }
+
+    // 计算总长度
+    let totalLength = 0;
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const dx = nodes[i + 1].x - nodes[i].x;
+      const dy = nodes[i + 1].y - nodes[i].y;
+      const dz = nodes[i + 1].z - nodes[i].z;
+      totalLength += Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    // 计算沿程水头损失
+    const headLosses = [];
+    let cumulativeHeadLoss = 0;
+
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const segmentLength = Math.sqrt(
+        (nodes[i + 1].x - nodes[i].x) ** 2 +
+        (nodes[i + 1].y - nodes[i].y) ** 2 +
+        (nodes[i + 1].z - nodes[i].z) ** 2
+      );
+
+      const flowRate = nodes[i + 1].q; // 使用末端节点的流量
+      const crossSectionalArea = Math.PI * (diameter / 2) ** 2;
+      const velocity = flowRate / crossSectionalArea;
+
+      // 雷诺数（假设密度和粘度为常数）
+      const density = 1000; // kg/m³
+      const viscosity = 0.001; // Pa·s
+      const reynoldsNumber = (density * velocity * diameter) / viscosity;
+
+      let headLoss;
+      if (formula === 'darcy-weisbach') {
+        // 达西-魏斯巴赫方程
+        let frictionFactor;
+        if (reynoldsNumber < 2300) { // 层流
+          frictionFactor = 64 / reynoldsNumber;
+        } else if (reynoldsNumber > 4000) { // 湍流
+          const roughness = 0.04; // mm
+          const epsilonOverD = roughness / diameter;
+          frictionFactor = 1 / (2 * Math.log10(epsilonOverD / 3.7 + 2.51 / reynoldsNumber)) ** 2;
+        } else { // 过渡区
+          frictionFactor = 0.079 * Math.pow(reynoldsNumber, -0.25); // 使用湍流近似
+        }
+        const gravity = 9.81;
+        headLoss = frictionFactor * (segmentLength / diameter) * (velocity ** 2) / (2 * gravity);
+      } else if (formula === 'hazen-williams') {
+        // 哈森-威廉姆斯公式
+        const cFactor = 130; // C系数
+        headLoss = 10.67 * (segmentLength / (cFactor ** 1.85)) * ((flowRate / crossSectionalArea) ** 1.85) * (1 / (diameter ** 4.87));
+      }
+
+      // 加上局部损失
+      headLoss += (nodes[i + 1].k * (velocity ** 2)) / (2 * 9.81);
+
+      headLosses.push(headLoss);
+      cumulativeHeadLoss += headLoss;
+    }
+
+    // 显示结果
+    const resultElement = document.getElementById('result');
+    resultElement.innerHTML = `总管道长度: ${totalLength.toFixed(2)} m<br/>`;
+    resultElement.innerHTML += `总水头损失: ${cumulativeHeadLoss.toFixed(2)} m`;
+
+    // 更新图表
+    updateChart(nodes, headLosses, totalLength, cumulativeHeadLoss);
+    // 渲染场景
+    renderScene();
+  }
+
+  // 更新图表
+  function updateChart(nodes, headLosses, totalLength, cumulativeHeadLoss) {
+    const chartCanvas = document.getElementById('chartContainer');
+    const ctx = chartCanvas.getContext('2d');
+
+    // 销毁之前的图表实例
+    if (chartInstance) {
+      chartInstance.destroy();
+    }
+
+    // 创建新的图表实例
+    chartInstance = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: '沿程水头损失 (m)',
+          data: nodes.slice(1).map((node, index) => ({ x: node.x, y: node.z, r: 5 })),
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgb(75, 192, 192)',
+          pointRadius: 5,
+          pointHoverRadius: 10,
+          showLine: false
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            title: { display: true, text: 'X 轴 (m)' },
+            beginAtZero: true
+          },
+          y: {
+            title: { display: true, text: 'Z 轴 (m)' },
+            beginAtZero: true
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const dataIndex = context.dataIndex;
+                return `H: ${headLosses[dataIndex].toFixed(2)} m`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // 在每个节点末端显示水头损失的值
+    nodes.slice(1).forEach((node, index) => {
+      const label = document.createElement('div');
+      label.className = 'node-label';
+      label.textContent = `H: ${headLosses[index].toFixed(2)} m`;
+      label.style.left = `${(node.x + 400) / 8}px`;
+      label.style.top = `${(node.z + 200) / 4}px`;
+      document.body.appendChild(label);
+    });
+  }
+
+  // 初始化场景
+  drawAxis();
+  renderScene();
+
+  // 实时渲染
+  function animate() {
+    requestAnimationFrame(animate);
+    renderScene();
+  }
+  animate();
+</script>
+</body>
+</html>
