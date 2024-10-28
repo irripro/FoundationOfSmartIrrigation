@@ -26,6 +26,8 @@
   </select>
   <p><h3>主管管道内径 (mm)：</h3></p>
   <input type="number" id="diameter" value="100" step="1" required>
+  <p><h3>主管总水头/水泵扬程 (m)：</h3></p>
+  <input type="number" id="totalHead" value="60" step="1" required>
   <!-- <p><h3>流量 (m³/h)：</h3></p>
   <input type="number" id="flowRate" value="40" step="any" required> -->
   <p><h3>20 ℃ 流体密度 (kg/m³) [仅用于达西-魏斯巴赫]：</h3></p>
@@ -41,14 +43,14 @@
     <br>4. 石棉<br>
     ~ 石棉水泥管的粗糙度值大概在(0.03 ~ 0.15)mm范围内。在水力计算时，需要根据石棉水泥管的实际生产工艺和使用状况确定其粗糙度取值，以准确计算沿程水头损失等水力参数。</p>
   <p><h3>管道粗糙度 (mm) [仅用于达西-魏斯巴赫]：</h3></p>
-  <input type="number" id="roughness" value="0.2" step="0.1">
+  <input type="number" id="roughness" value="0.002" step="0.1">
   <p>塑料管（如PVC, PE, PP等）: 通常取值为 150<br>
     新铸铁管: 通常取值为 130<br>
     旧铸铁管和旧钢管: 通常取值为 100<br>
     混凝土管（砼）: 通常取值为 120<br>
     石棉水泥管: 通常取值为 130 到 140 之间，具体取决于管道的新旧程度和表面状况。</p>
   <p><h3>C系数 [仅用于哈森-威廉姆斯：</h3></p>
-  <input type="number" id="cFactor" value="130" step="10">
+  <input type="number" id="cFactor" value="140" step="10">
   <button onclick="calculate()"><h2>计算</h2></button>
   
   <div class="piperesult" id="piperesult"></div>
@@ -86,17 +88,17 @@
         let error = 1e-6; // 定义误差容忍度
         let iterations = 0;
         let maxIterations = 1000;
-
+        if (roughness === 0) { // 假设光滑管
+            f = 0.079 * Math.pow(reynolds, -0.25);
+            } 
         if (reynolds < 2300) { // 层流
             f = 64 / reynolds;
         } else if (reynolds > 4000) { // 湍流
-            if (roughness === 0) { // 假设光滑管
-            f = 0.079 * Math.pow(reynolds, -0.25);
-            } else { // 粗糙管
+             // 粗糙管
             const epsilonOverD = roughness / diameter;
             f = 1 / (2 * Math.log10(epsilonOverD / 3.7 + 2.51 / reynolds)) ** 2;
             // const epsilonOverD = roughness / diameter;
-            }
+            
         }else{
             while (iterations < maxIterations) {
                 let f1 = -2 * Math.log10((roughness / (3.7 * diameter)) + (2.51 / (reynolds * Math.sqrt(f))));
@@ -136,7 +138,7 @@
                     label: ' 水头损失 (m)',
                     data: cumulativeHeadLoss.map((value, index) => ({
                         x: PipeLength[index],
-                        y: value-nodes[index].z
+                        y: value //-nodes[index].z
                     })),
                     fill: true,
                     borderColor: 'rgb(75, 94, 232)',
@@ -266,15 +268,9 @@
     }
     );
 }
-
-function plotPipeline (pipeLengths,headLoss,nodes) {
-    // const frictionFactor = parseFloat(document.getElementById('frictionFactor').value);
-    // const pipeLength = parseFloat(document.getElementById('pipeLength').value);
-    // const flowRate = parseFloat(document.getElementById('flowRate').value);
-    // const pipeDiameter = parseFloat(document.getElementById('pipeDiameter').value);
-
-    // const headLoss = calculateHeadLoss(frictionFactor, pipeLength, flowRate, pipeDiameter);
-    
+//pipeLengths,headLoss,
+function plotPipeline (nodes) {
+       
     
     // 绘制图表
     const ctx = document.getElementById('PipelineChart').getContext('2d');
@@ -284,38 +280,33 @@ function plotPipeline (pipeLengths,headLoss,nodes) {
     let showThisLine=false;
     
     chartpipelineInstance =new Chart(ctx, {
-      type: 'line',
+    // Assuming nodes contains objects like { x: number, y: number, q: number }
+
+      type: 'scatter', // Use scatter for better control over individual points
       data: {
         datasets: [
+          // First dataset remains unchanged
           {
             label: '管道平面布置图',
             data: nodes.map(point => ({ x: point.x, y: point.y })),
             borderColor: 'blue',
             fill: false,
-            showLine: true, // 显示连接线
-            pointRadius: 0, // 不显示点
+            showLine: true,
+            pointRadius: 0,
             pointBackgroundColor: 'blue'
           },
+          // Second dataset corrected
           {
-            label: 'q',
+            label: '出流 q',
             data: nodes.filter(point => point.q !== 0).flatMap(point => [
               { x: point.x, y: point.y }, // Original Point + 0.1 + point.q/40
               { x: point.x , y: point.y + point.q/50, q: point.q } // Additional Point
             ]),
-            // data: nodes.flatMap((point, index) => {
-            //   const showThisLine = point.q !== 0;
-            //   return [
-            //     { x: point.x, y: point.y ,q : point.q },
-            //     (showThisLine ? { x: point.x + 0.1, y: point.y + 0.3 } : { x: point.x, y: point.y }),
-            //     // 使用 null 来断开线条
-            //     (index < nodes.length - 1 && showThisLine) ? { x: point.x, y: point.y } :{ x: point.x, y: point.y }
-            //   ].filter(item => item !== null);
-            // }),
             borderColor: 'red',
-            fill: false,
-            showLine: true, // 这里总是 true，因为实际显示由上面的过滤逻辑控制
-            pointRadius: 3, //showThisLine ? 6:0, // 显示点
-            borderWidth: 1, //showThisLine ? 3:0
+            backgroundColor: 'transparent',
+            pointBorderWidth: 1,
+            pointRadius: 4,
+            // showLine: ture, // false // We don't need connecting lines here
           }
         ]
       },
@@ -323,7 +314,7 @@ function plotPipeline (pipeLengths,headLoss,nodes) {
         scales: {
           x: {
             type: 'linear',
-            position: 'bottom'
+            position: 'bottom' 
           },
           y: {
             type: 'linear',
@@ -333,8 +324,7 @@ function plotPipeline (pipeLengths,headLoss,nodes) {
         plugins: {
           tooltip: {
             callbacks: {
-                // label: (context) => `x: ${context.parsed.x}, y: ${context.parsed.y}, q (m³/h): ${context.parsed.q}`
-                label: (context) => {
+              label: (context) => {
                 if ('q' in context.raw) {
                   return `q (m³/h): ${context.raw.q}`; // x: ${context.parsed.x.toFixed(2)}, y: ${context.parsed.y.toFixed(2)}, 
                 } else {
@@ -344,36 +334,8 @@ function plotPipeline (pipeLengths,headLoss,nodes) {
             }
           }
         }
-
-        //   //   // callbacks: {
-        //   //   //   label: (context) => {
-        //   //   //     const dataIndex = context.dataIndex;
-        //   //   //     const dataset = context.dataset.data || [];
-        //   //   //     // const point = nodes[Math.floor(dataIndex / 2)]; // 每两个点对应一个原始点
-        //   //   //     const point = nodes[dataIndex ]; 
-        //   //   //       // // 如果数据点索引有效
-        //   //   //       // if (dataIndex >= 0 && dataIndex < nodes.length) {
-        //   //   //       //     const point = nodes[dataIndex];
-        //   //   //       //     // 根据数据集标签返回不同的提示信息
-        //   //   //       //     if (context.dataset.label === '出流') {
-        //   //   //       //         // 如果 q 属性存在，返回包含 x、y 和 q 的提示信息
-        //   //   //       //         return context.parsed.q ? `x: ${context.parsed.x}, y: ${context.parsed.y}, q (m³/h): ${context.parsed.q}` : '';
-        //   //   //       //     } else {
-        //   //   //       //         // 如果 q 属性存在，返回包含 x、y 和 q 的提示信息
-        //   //   //       //         return point.q ? `x: ${point.x}, y: ${point.y}, q (m³/h): ${point.q}` : '';
-        //   //   //       //     }
-        //   //   //       // }
-        //   //   //       // // 获取数据点的索引
-        //   //   //       // const dataIndex = nodes.dataIndex;
-        //   //   //       // // 获取当前数据集的数据
-        //   //   //       // const dataset = nodes.dataset.data || [];
-        //   //   //       // const point = nodes[dataIndex];
-        //   //   //       return `x: ${context.parsed.x }, y: ${context.parsed.y }, q (m³/h): ${context.parsed.q } `;
-        //   //   //   }
-        //   //   // }
-        //   // }
-        // }
-      } 
+      }
+// });
     });
   }
 
@@ -383,7 +345,7 @@ function calculate() {
     
     const formula = document.getElementById('formula').value;
     let diameter = parseFloat(document.getElementById('diameter').value)/1000;
-    // const flowRate = parseFloat(document.getElementById('flowRate').value)/3600;
+    const totalHead = parseFloat(document.getElementById('totalHead').value)|| 60;
 
 
     const density = parseFloat(document.getElementById('density').value) || 1000; // 默认为水的密度
@@ -391,9 +353,7 @@ function calculate() {
     const roughness = parseFloat(document.getElementById('roughness').value) /1000; // 默认值
     const cFactor = parseFloat(document.getElementById('cFactor').value) || 130; // 默认C系数
   
-    // 解析坐标输入
-    // const lines = coordinatesInput.trim().split('\n');
-    // const nodes = lines.map(line => line.split(',').map(Number));
+    
     // 解析坐标输入
     const lines = coordinatesInput.trim().split('\n');
     if (lines.length < 2) {
@@ -499,16 +459,14 @@ function calculate() {
     const pipeLength=[];
     const pipeLengths=[];
     const pipeHeadloss=[];
-    
+    const totalHeadlines=[];
 
     let Lengths=0
-    // let headLoss=0
-    // pipeLength[0]=0
-    // pipeHeadloss[0]=0
+   
     pipeLength.push(0);
     pipeLengths.push(0);
-    pipeHeadloss.push(nodes[0].z);
-    
+
+        
     for (let i = 0; i < nodes.length - 1; i++) {
       const dx = nodes[i + 1].x - nodes[i].x;
       const dy = nodes[i + 1].y - nodes[i].y;
@@ -522,19 +480,22 @@ function calculate() {
       // 计算流速
     }
 
-    let sumheadLoss=nodes[0].z;
+    pipeHeadloss.push(0);
+
+    let sumheads=totalHead+ nodes[0].z;
+    totalHeadlines.push(sumheads);
     let dz;
+    let head=0;
+    // let sumhead=0;
     for (let i = 0; i < nodes.length-1 ; i++) {
         pipediameter=nodes[i+1].D/1000
       const pipeCrossSectionalArea = Math.PI * (pipediameter / 2) ** 2;
       const pipeVelocity = (flowRate-nodeq[i] )/ pipeCrossSectionalArea;
       //局部水头损失
       let hk=nodes[i].k*pipeVelocity*pipeVelocity/(2*gravity);
-        // if(i === 0) {
-        //     dz = 0; //nodes[i].z;
-        // } else {
-            dz = nodes[i+1].z - nodes[i].z;
-        // }
+        
+      dz = nodes[i+1].z - nodes[i].z;
+        
       if (formula === 'darcy-weisbach') {
     
         // 雷诺数
@@ -542,9 +503,7 @@ function calculate() {
         
         frictionFactor=calculateFrictionFactor(roughness, pipediameter, reynoldsNumber)
         headLoss = calculateDarcyWeisbach(frictionFactor, pipeLength[i+1], pipediameter, pipeVelocity);
-        sumheadLoss=sumheadLoss+headLoss+hk+dz; //+nodes[i+1].z
-        pipeHeadloss.push(sumheadLoss);
-        // pipeHeadloss[i]=headLoss;
+        
 
       } else if (formula === 'hazen-williams') {
 
@@ -553,10 +512,15 @@ function calculate() {
         // 使用哈森-威廉姆斯公式计算水头损失  10.67 * Math.pow(Q, 1.852) * Math.pow(C, -1.852) * Math.pow(D, -4.87) * L;
           headLoss = 10.67  * Math.pow((flowRate-nodeq[i] ), 1.852) * Math.pow(cFactor, -1.852) * Math.pow(pipediameter, -4.87) * pipeLength[i+1];
         //   pipeHeadloss.push(headLoss);
-          sumheadLoss=sumheadLoss+headLoss+hk+dz; //+nodes[i+1].z
-            pipeHeadloss.push(sumheadLoss);
+          
           // pipeHeadloss[i]=headLoss;
         }
+      // sumheadLoss=sumheadLoss+headLoss+hk+dz; //+nodes[i+1].z
+      hf=headLoss+hk;
+      pipeHeadloss.push(hf);
+      head = hf+dz;
+      sumheads -=head; 
+      totalHeadlines.push(sumheads);
 
     }
 
@@ -566,15 +530,15 @@ function calculate() {
     resultPipeElement.innerHTML =`每条管段：<br/>`;
     for (let i = 0; i < nodes.length - 1; i++) {
       resultPipeElement.innerHTML += `管段长: ${ pipeLength[i+1].toFixed(2)} m<br/>`;
-      resultPipeElement.innerHTML += `管段管径: ${ nodes[i+1].D.toFixed(2)} mm<br/>`;
-      resultPipeElement.innerHTML += `管段水头损失: ${ (pipeHeadloss[i+1]-nodes[i+1].z).toFixed(3)} m<br/>`;
+      resultPipeElement.innerHTML += ` ${i+1} 管段管径: ${ nodes[i+1].D.toFixed(2)} mm<br/>`;
+      resultPipeElement.innerHTML += ` ${i+1} 管段水头损失: ${ (pipeHeadloss[i+1]).toFixed(3)} m<br/>`;  //-nodes[i+1].z
     }
 
     const resultHeadlossElement = document.getElementById('headlossresult');
     resultHeadlossElement.innerHTML =`<br/>总水头线：<br/>`;
     for (let i = 0; i < nodes.length ; i++) {
       resultHeadlossElement.innerHTML += `节点 ${i} 高程 ：  ${ nodes[i].z.toFixed(3)} m<br/>`;
-      resultHeadlossElement.innerHTML += `节点 ${i} 水头 ：  ${ pipeHeadloss[i].toFixed(3)} m<br/>`;
+      resultHeadlossElement.innerHTML += `节点 ${i} 水头 ：  ${ totalHeadlines[i].toFixed(3)} m<br/>`;
       resultHeadlossElement.innerHTML += `节点 ${i} 的出流量  ：  ${ nodes[i].q.toFixed(2)} m³/h<br/>`;
     }
 
@@ -616,14 +580,14 @@ function calculate() {
     // 显示结果 
     const resultElement = document.getElementById('result');
     resultElement.innerHTML = `<br/>全程管道总长度: ${totalLength.toFixed(2)} m<br/>`;
-    resultElement.innerHTML += `用最大流量计算的总水头损失: ${headLoss.toFixed(2)} m<br/>`;
+    resultElement.innerHTML += `用恒定流量计算的总水头损失: ${headLoss.toFixed(2)} m<br/>`;
     resultElement.innerHTML += `假定管道不变的直径: ${diameter.toFixed(2)} mm<br/>`;
     resultElement.innerHTML += `计算用总流量: ${flowRate.toFixed(2)} m³/h<br/>`;
     resultElement.innerHTML += `最大总流量的管道流速: ${velocity.toFixed(2)} m/s<br/>`;
      // 更新图表 pipeHeadloss
      updateChart(nodes, pipeHeadloss,   pipeLength) ;
-     calculateAndPlot(pipeLengths,pipeHeadloss,nodes);
-     plotPipeline(pipeLengths,pipeHeadloss,nodes);
+     calculateAndPlot(pipeLengths, totalHeadlines,nodes);
+     plotPipeline(nodes);  //pipeLengths,pipeHeadloss,
 
 
 }

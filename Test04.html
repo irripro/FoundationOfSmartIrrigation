@@ -6,71 +6,53 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管道折线图</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
   <canvas id="myChart"></canvas>
-  // 示例数据点
-  const dataPoints = [
-    { x: 10, y: 20, outFlow: 50, direction: 'right' },
-    { x: 30, y: 40, outFlow: 60, direction: 'up' },
-    { x: 50, y: 60, outFlow: 70, direction: 'left' },
-    { x: 70, y: 80, outFlow: 80, direction: 'down' }
-  ];
-  
-  // 图表配置
-  const chartConfig = {
-    type: 'line', // 或其他图表类型
-    data: {
-      datasets: [{
-        label: 'Data Points',
-        data: dataPoints.map(point => ({ x: point.x, y: point.y })),
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        fill: false
-      }]
-    },
-    options: {
-      scales: {
-        x: {
-          type: 'linear',
-          position: 'bottom'
-        },
-        y: {
-          beginAtZero: true
-        }
+  <script>
+    // 假设的管道节点数据
+    const dataPoints = [
+      { x: 10, y: 20, outFlow: 5 },
+      { x: 30, y: 40, outFlow: 8 },
+      { x: 50, y: 60, outFlow: 10 }
+    ];
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: '管道折线',
+          data: dataPoints.map(point => ({ x: point.x, y: point.y })),
+          borderColor: 'blue',
+          fill: false
+        }]
       },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const dataPoint = dataPoints[context.dataIndex];
-              return `x: ${dataPoint.x}, y: ${dataPoint.y}, 出流: ${dataPoint.outFlow}, 方向: ${dataPoint.direction}`;
-            }
+      options: {
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom'
+          },
+          y: {
+            type: 'linear',
+            position: 'left'
           }
         },
-        annotation: {
-          annotations: dataPoints.map(point => ({
-            type: 'arrow',
-            xValue: point.x,
-            yValue: point.y,
-            x1: point.direction === 'right' ? point.x + 10 : point.direction === 'left' ? point.x - 10 : point.x,
-            y1: point.direction === 'up' ? point.y - 10 : point.direction === 'down' ? point.y + 10 : point.y,
-            borderColor: 'red',
-            borderWidth: 2,
-            arrowHead: 4, // 箭头头部的大小
-            endCap: 'arrow' // 箭头头部的样式
-          }))
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const dataPoint = dataPoints[context.dataIndex];
+                return `x: ${dataPoint.x}, y: ${dataPoint.y}, 出流: ${dataPoint.outFlow}`;
+              }
+            }
+          }
         }
       }
-    }
-  };
-  
-  // 获取 canvas 元素并创建图表
-  const ctx = document.getElementById('myChart').getContext('2d');
-  const myChart = new Chart(ctx, chartConfig);
+    });
   </script>
 </body>
 

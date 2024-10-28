@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///Head_Loss_Calculator -OK.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        {
+            "name": "Launch Edge",
+            "request": "launch",
+            "type": "msedge",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation///Head_Loss_Calculator_Used.html",
+            "webRoot": "${workspaceFolder}"
+        },
+        
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Three-section reducer pipe selection.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        
+        
+        // {
+        //     "type": "msedge",
+        //     "request": "launch",
+        //     "name": "Three-section reducer pipe selection.html",
+        //     "file": "d:\\GitHub\\FoundationOfSmartIrrigation\\Three-section reducer pipe selection.html"
+        // }
+    ]
+}

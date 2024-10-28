@@ -1,0 +1,98 @@
+[Title]
+; Example Water Network
+
+[JUNCTIONS]
+ID             Elev         Demand       Pattern
+J-1            100.0        100          ;
+J-2            100.0        150          ;
+
+[RESERVOIRS]
+ID             Head         Pattern
+R-1            150.0        ;
+
+[TANKS]
+ID             Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol      VolCurve
+T-1            120.0        10.0         0.0          20.0         30.0         ;           ;
+
+[PIPES]
+ID             Node1        Node2        Length       Diameter     Roughness    MinorLoss   Status
+P-1            J-1          J-2          1000.0       0.3048       100.0        0.0         OPEN
+P-2            J-2          R-1          1000.0       0.3048       100.0        0.0         OPEN
+
+[PUMPS]
+ID             Node1        Node2        Parameters
+PU-1           R-1          T-1          HEAD 60 PATTERN 1
+
+[VALVES]
+ID             Node1        Node2        Diameter     Type         Setting      MinorLoss
+V-1            J-1          T-1          0.3048       PRV          45.0         0.0
+
+[DEMANDS]
+JUNCTION-ID    Demand       Pattern      Category
+J-1            100          1            1
+J-2            150          1            1
+
+[PATTERNS]
+ID             Multipliers
+1              1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+
+[CURVES]
+ID             X-Value      Y-Value
+; (这里可以定义泵或储罐的曲线)
+
+[CONTROLS]
+; (这里可以定义控制规则)
+
+[COORDINATES]
+Node-ID        X-Coord      Y-Coord
+J-1            0.0          0.0
+J-2            1000.0       0.0
+R-1            2000.0       0.0
+T-1            3000.0       0.0
+
+[VERTICES]
+; (这里可以定义管线的折点坐标)
+
+[EMITTERS]
+; (这里可以定义排放器)
+
+[LABELS]
+; (这里可以定义标签)
+
+[OPTIONS]
+Units           GPM
+Headloss        D-W
+SpecificGravity 1.0
+Viscosity       1.0
+Pattern         1
+Quality         NONE
+DemandMultiplier 1.0
+StartTime       0:00:00
+ReportTimeStep  1:00:00
+Duration        24:00:00
+HydraulicTimeStep 1:00:00
+QualityTimeStep 0:00:00
+RuleTimeStep    1:00:00
+PatternTimeStep 1:00:00
+MinimumPressure 0.0
+RequiredPressure 20.0
+Accuracy        0.001
+CHECKFREQ       2
+MAXCHECK        10
+DAMPLIMIT       0.0
+
+[REPORT]
+Status          FULL
+Summary         YES
+Energy          YES
+Nodes           ALL
+Links           ALL
+
+[BACKDROP]
+Dimensions      0 0 5000 5000
+Units           Meters
+File            backdrop.png
+Offset          0 0
+
+[TAGS]
+; (这里可以定义标记)
