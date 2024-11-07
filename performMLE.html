@@ -1,0 +1,243 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最大似然估计结果可视化</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 900px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
+        .result { margin-top: 20px; }
+      </style>
+
+    <!-- 引入Chart.js库 -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+</head>
+
+<body>
+    <!-- //对于的应用示例：假设对参数和有先验分布 -->
+    <!-- <canvas id="myChart"></canvas> -->
+    <H1>从输入数据，用最大似然估计法 对 q=f(H) 拟合函数 Q=aH^b ，单位： m3/h，并显示图形</H1>
+
+    <p>输入实测参数 (压力 H: 13 m , 流量 Q: 9.3 m3/h ）, 请使用英文“,”分隔数据。例如: 13,19.3)：</p>
+  
+    <div class="container">
+    <textarea id="datas" rows="10"></textarea>
+    
+    <button onclick="calculate()"><h2>计算</h2></button>
+    </br>
+    <canvas id="myChart"></canvas>
+    </div>
+    
+
+<script >
+let myChart = null;
+        // 生成一些模拟观测数据（这里假设H和对应的Q观测值）
+const generateMockData = () => {
+    const numDataPoints = 100; // 观测数据点数量
+    const HValues = [];
+    const QValues = [];
+    // 实测数据
+    let coordinatesInput = document.getElementById('datas').value;
+    
+    // 解析输入
+    const lines = coordinatesInput.trim().split('\n');
+        if (lines.length < 3) {
+            // 数据长度不足，提示用户并清空或重新请求输入
+            alert("管段数据不足，请确保输入了至少3行的信息后重新提交。");
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+        }
+        const data = lines.map(line => {
+            const [H, q] = line.split(',').map(Number);
+            
+            return { H, q };
+        });
+        for(let i=1;i<data.length;i++){
+            if (typeof data[i].H != 'number' || isNaN(data[i].H)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].H}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+            }   
+            if (typeof data[i].q != 'number' || isNaN(data[i].q)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].q}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            
+            return; // 结束当前函数执行，避免处理不完整数据
+            }  
+            
+            
+        }
+        
+        for (let i = 0; i < data.length ; i++) {
+            // numDataPoints const h = Math.random() * 10; // 随机生成H值在0到10之间
+            HValues.push(data[i].H);
+            // 根据真实的a和b值（这里假设已知真实值用于生成模拟数据）以及噪声生成Q观测值
+            // const trueA = 0.2;
+            // const trueB = 1.5;
+            // const noise = Math.random() * 0.5 - 0.25; // 随机噪声在-0.25到0.25之间
+            // const q = trueA * Math.pow(h, trueB) + noise;
+            QValues.push(data[i].q);
+        }
+    return { HValues, QValues };
+};
+
+// 似然函数（假设观测数据服从正态分布）
+const likelihoodFunction = (a, b, HValues, QValues, sigmaSquared) => {
+    let likelihood = 1;
+    const numDataPoints = HValues.length;
+    for (let i = 0; i < numDataPoints; i++) {
+        const h = HValues[i];
+        const q = QValues[i];
+        const mean = a * Math.pow(h, b);
+        const exponent = -((q - mean) ** 2) / (2 * sigmaSquared);
+        likelihood *= Math.exp(exponent) / Math.sqrt(2 * Math.PI * sigmaSquared);
+    }
+    return likelihood;
+};
+
+// 对数似然函数（为了方便计算，通常最大化对数似然函数）
+const logLikelihoodFunction = (a, b, HValues, QValues, sigmaSquared) => {
+    let logLikelihood = 0;
+    const numDataPoints = HValues.length;
+    for (let i = 0; i < numDataPoints; i++) {
+        const h = HValues[i];
+        const q = QValues[i];
+        const mean = a * Math.pow(h, b);
+        const exponent = -((q - mean) ** 2) / (2 * sigmaSquared);
+        logLikelihood += exponent - Math.log(Math.sqrt(2 * Math.PI * sigmaSquared));
+    }
+    return logLikelihood;
+};
+
+// 执行最大似然估计
+const performMLE = () => {
+    const { HValues, QValues } = generateMockData();
+    // const numDataPoints = HValues.length;
+    // for (let i = 0; i < numDataPoints; i++) {
+    //     console.log("HValues值:", HValues[i]);
+    //     console.log("QValues值:", QValues[i]);
+    // }
+    const sigmaSquared = 0.1; // 假设已知的噪声方差
+
+    // 简单的网格搜索来寻找使对数似然函数最大的a和b值（这里只是示例，实际可使用更优化的算法）
+    let maxLogLikelihood = -Infinity;
+    let bestA = 0;
+    let bestB = 0;
+    for (let a = 0; a < 5; a += 0.1) {
+        for (let b = 0; b < 5; b += 0.1) {
+            const logLikelihood = logLikelihoodFunction(a, b, HValues, QValues, sigmaSquared);
+            if (logLikelihood > maxLogLikelihood) {
+                maxLogLikelihood = logLikelihood;
+                bestA = a;
+                bestB = b;
+            }
+        }
+    }
+    console.log("估计的a值:", bestA);
+    console.log("估计的b值:", bestB);
+    return { bestA, bestB, HValues, QValues };
+     
+    // return { HValues, QValues};
+}
+
+function calculate() {
+    // { bestA, bestB }=performMLE();  
+    // performMLE();  
+    // HValues=performMLE().HValues;  
+    // QValues=performMLE().QValues;  
+
+    const { bestA, bestB, HValues, QValues  } = performMLE();
+    // const numDataPoints = HValues.length;
+    // for (let i = 0; i < numDataPoints; i++) {
+    //     console.log("HValues值:", HValues[i]);
+    //     console.log("QValues值:", QValues[i]);
+    // }
+    // 生成拟合曲线的数据点 data
+    
+    const numLength =Math.floor( Math.max(...HValues));
+    // const numLength = Math.floor(HValues[HValues.length-2]) ; //* Math.ceil(numLength) / (numLength - 1)
+    const fitXData = Array.from({ length: numLength }, (_, i) => 1 + i* Math.ceil(numLength) / (numLength - 1) );
+    const fitYData = fitXData.map(x => bestA * Math.pow(x, bestB));
+
+    // 使用Chart.js绘制图表
+    const ctx = document.getElementById('myChart').getContext('2d');
+    // 销毁之前的图表实例（如果有）
+        //
+        if (myChart) {
+            myChart.destroy();
+        }
+    const myChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: '观测数据',
+                    data: HValues.map((h, index) => ({ x: h, y: QValues[index] })),
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    pointRadius: 3
+                },
+                {
+                    label: `Q = ${bestA.toFixed(4)}H^${bestB.toFixed(4)} m3/h`,
+                    data: fitXData.map((x, i) => ({ x: x, y: fitYData[i] })),
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'blue',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    showLine: true // 添加showLine属性
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: {
+                        display: true,
+                        text: '压力 H（m）'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: '流量 q （m3/h）'
+                    }
+                }
+            },
+                elements: {
+                    line: {
+                        tension: 0.1 // =0 去除曲线的平滑效果，使曲线为折线
+                    }
+                }
+        }
+    });
+
+    
+    }
+     
+
+</script>
+
+
+</body>
+
+</html>

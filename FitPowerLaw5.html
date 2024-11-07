@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Q 函数拟合与显示</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+</head>
+
+<body>
+  <h2>拟合曲线和数据点</h2>
+  <canvas id="myChart"></canvas>
+  <p>误差值: <span id="errorValue"></span></p>
+
+  <script>
+    // 模拟实测数据
+    const H = [0, 2.1, 3.3, 4.5, 5.5];
+    const Q = [1, 4.3, 7.8, 16.5, 31.2];
+
+    // 线性最小二乘法拟合
+    function fitCurve(H, Q) {
+      const n = H.length;
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+      for (let i = 0; i < n; i++) {
+        const x = Math.log(H[i]);
+        const y = Math.log(Q[i]);
+
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumXX += x * x;
+      }
+      // 计算平均值
+      let meanX = sumX / n;
+      let meanY = sumY / n;
+      let denominator = n * sumXX - sumX * sumX;
+      if (denominator === 0) {
+          throw new Error("Cannot divide by zero. Check your data inputs.");
+      }
+      let a = (n * sumXY - sumX * sumY) / denominator;
+      // let b = (sumY * sumXX - sumX * sumXY) / denominator;
+      let b = meanY - a * meanX; // 这里使用了平均值来计算b
+
+      // const b = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      // const a = Math.exp((sumY - b * sumX) / n);
+
+      // 计算拟合值
+      const QFit = H.map(h => Math.exp(a) * Math.pow(h, b));
+
+      // 计算误差（均方根误差）
+      const error = Math.sqrt(Q.reduce((sum, q, index) => sum + Math.pow(q - QFit[index], 2), 0) / Q.length);
+
+      // 绘制图形
+      const ctx = document.getElementById('myChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: H,
+          datasets: [
+            {
+              label: '实测数据点',
+              data: Q.map((q, index) => ({ x: H[index], y: q })),
+              type:'scatter',
+              borderColor:'red',
+              showLine: false
+            },
+            {
+              label: `Q = ${Math.exp(a).toFixed(2)}H^${b.toFixed(2)}`,
+              data: QFit.map((qFit, index) => ({ x: H[index], y: qFit })),
+              borderColor:'blue',
+              borderWidth: 2,
+              pointRadius: 0  // 不显示曲线上的点
+            }
+          ]
+        },
+        options: {
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'H'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Q'
+              }
+            }
+          }
+        }
+      });
+
+      // 显示误差值
+      document.getElementById('errorValue').innerHTML = error.toFixed(2);
+    }
+
+    fitCurve(H, Q);
+  </script>
+</body>
+
+</html>

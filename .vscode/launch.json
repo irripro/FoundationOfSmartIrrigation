@@ -8,14 +8,14 @@
         //     "name": "Launch Edge",
         //     "request": "launch",
         //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///Head_Loss_Calculator -OK.html",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///performMLE.html",
         //     "webRoot": "${workspaceFolder}"
         // },
         {
             "name": "Launch Edge",
             "request": "launch",
             "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation///Head_Loss_Calculator_Used.html",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//Sprinkler Irrigation Lateral Selection.html",
             "webRoot": "${workspaceFolder}"
         },
         
@@ -23,7 +23,7 @@
         //     "name": "Launch Edge",
         //     "request": "launch",
         //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Three-section reducer pipe selection.html",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//FitPowerLaw_l_h.html",
         //     "webRoot": "${workspaceFolder}"
         // },
         

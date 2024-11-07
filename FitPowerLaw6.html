@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Law Fit with Chart.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <canvas id="myChart" width="400" height="400"></canvas>
+    <script>
+        function leastSquaresPowerLawFit(xData, yData) {
+            if (xData.length !== yData.length) {
+                throw new Error('xData and yData must have the same length.');
+            }
+
+            const n = xData.length;
+            let sumLogX = 0, sumLogY = 0, sumLogXLogY = 0, sumLogX2 = 0;
+
+            for (let i = 0; i < n; i++) {
+                const logX = Math.log(xData[i]);
+                const logY = Math.log(yData[i]);
+                sumLogX += logX;
+                sumLogY += logY;
+                sumLogXLogY += logX * logY;
+                sumLogX2 += logX * logX;
+            }
+
+            const numeratorB = n * sumLogXLogY - sumLogX * sumLogY;
+            const denominatorB = n * sumLogX2 - sumLogX * sumLogX;
+            const b = numeratorB / denominatorB;
+
+            const lnA = (sumLogY - b * sumLogX) / n;
+            const a = Math.exp(lnA);
+
+            return { a, b };
+        }
+
+        // 示例数据点
+        const data = [
+            { H: 1, q: 2 },
+            { H: 2, q: 4 },
+            { H: 3, q: 9 },
+            { H: 4, q: 16 },
+            { H: 5, q: 25 }
+        ];
+
+        // 提取 x 和 y 数据
+        const xData = data.map(item => item.H);
+        const yData = data.map(item => item.q);
+
+        // 拟合数据
+        const { a, b } = leastSquaresPowerLawFit(xData, yData);
+        console.log(`拟合结果: a=${a}, b=${b}`);
+        // 显示拟合结果
+        document.body.innerHTML += `<p>拟合结果: a=${a.toFixed(2)}, b=${b.toFixed(2)}</p>`;
+
+        // 销毁之前的图表实例（如果有）
+        let myChart;
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        // 生成拟合曲线的数据点
+        const fitXData = Array.from({ length: 20 }, (_, i) => 1 + i * (5 - 1) / 19);
+        const fitYData = fitXData.map(x => a * Math.pow(x, b));
+
+        // 创建图表
+        const ctx = document.getElementById('myChart').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: '实测数据点',
+                        data: data.map(item => ({ x: item.H, y: item.q })),
+                        type: 'scatter',
+                        borderColor: 'Red',
+                        showLine: false,
+                        pointRadius: 5
+                    },
+                    {
+                        label: `q = ${a.toFixed(2)}H^${b.toFixed(2)} l/h`,
+                        data: fitXData.map((x, i) => ({ x, y: fitYData[i] })),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        pointRadius: 0 // 设置点的半径为 0，不显示点
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '工作压力 H（m）'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '流量 q （l/h）'
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.1 // 0 去除曲线的平滑效果，使曲线为折线
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

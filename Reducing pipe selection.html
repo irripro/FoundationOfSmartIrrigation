@@ -16,10 +16,64 @@
 </head>
 <body>
     <div class="container">
+    
+        <H1>从灌水器的试验数据，用最小二乘法 对 q=f(H) 拟合函数 Q=aH^b ，单位： l/h，并显示图形</H1>
+
+              
+        <div class="container">
+            <table width="317" height="206" border="1"  align="center" cellpadding="2" cellspacing="1">
+                <caption>
+                  微灌的滴灌/喷头参数
+                </caption>
+                <tr>
+                    <th width="100" align="center" scope="col">微喷头</th>
+                  <th width="100" align="center" scope="col">滴头</th>
+                  <th width="100" align="center" scope="col">滴头</th>
+                  <th width="100" align="center" scope="col">滴灌带</th>
+                </tr>
+                <tr>
+                    <td align="center">AS0180B</td>
+                  <td align="center">PCD0202</td>
+                  <td align="center">PCD0204</td>
+                  <td align="center">PC100</td>
+                </tr>
+                <tr>
+                    <td align="center" valign="top">5,38<br />                        
+                        10,58<br />
+                        15,71<br />
+                        20,84<br />
+                        25,94<br />
+                        30,126</td>
+                  <td align="center" valign="top">5,1.9<br />
+              7,2<br />
+              10,2.1<br />
+              20,2.1<br />
+              30,2.2<br />
+              40,2.1</td>
+                  <td align="center" valign="top">5,3.9<br />
+              7,4<br />
+              10,4.1<br />
+              20,4.2<br />
+              30,4.1<br />
+              40,4</td>
+                  <td align="center" valign="top">5,1.02<br />
+              10,1.03<br />
+              20,1.05<br />
+              30,1.04<br />
+              35,1.01</td>
+                </tr>
+              </table>
+        <p>输入实测参数 (压力 H: 10 m , 流量 Q: 1.03 l/h ）, 请使用英文“,”分隔数据。例如: 10,1.03)：</p>
+        <textarea id="emmiterdatas" rows="10"></textarea>
         
-    <h2>支（毛）管的多孔出流沿程水头损失计算器</h2>
+        <button onclick="calculate_aHb()"><h2>灌水器参数计算</h2></button>
+        </br>
+        <canvas id="calculate_aHbChart" width="400" height="400"></canvas>
+        </div>
+        
+    <h2>微灌毛管长度计算器</h2>
  
-  <p>从管道的尾端开始，管径从小到大，输入管道参数 (管段长 L: 80 m , 管段直径 D: 15 mm, 灌水器间隔:3 m ）, 请使用英文“,”分隔数据。例如: 80,15,3)：</p>
+  <p>如为变径，从管道的尾端开始，管径从小到大，输入管道参数 (管段长 L: 80 m , 管段内径 D: 15.8 mm, 灌水器间隔: 3 m ）, 请使用英文“,”分隔数据。例如: 80,15.8,3)：</p>
   
   <textarea id="segments" rows="10"></textarea>
   <p><h3>请选择水头损失计算公式：</h3></p>
@@ -32,20 +86,24 @@
     
     
   </select>
-  <p><h3>灌水器流量 (l/h)：</h3>
-  <input type="number" id="flowq" value="50" step="any" required></p>
-    <p><h3>灌水器工作水头 (m)：</h3>
-  <input type="number" id="totHead" value="25" step="any" required>
+  <p><h3>地面坡降 (下坡为正，反之为负)：</h3>
+  <input type="number" id="downSlope" value="0.001" step="any" required></p>
+    <p><h3>灌水器设计末端工作水头 (m)：</h3>
+  <input type="number" id="totHead" value="20" step="any" required>
     </p>
-  <button onclick="calculate()"><h2>计算</h2></button>
+  <button onclick="calculate()"><h2>毛管铺设长度分析</h2></button>
 
   <div class="result" id="result" width="680" height="400"></div>
 
     <canvas id="myChart" width="400" height="400"></canvas>
 </div>
     <script>
-        // 定义常量
-        const g = 9.81; // 重力加速度 (m/s^2)
+    
+    let calculate_aHbChart = null;
+    var pA = 1.1;
+    var pB = 1.5;
+    // 定义常量
+    const gravity = 9.81; // 重力加速度 (m/s^2)
         const nu = 1.004e-3; // 水的动力粘度 (m^2/s) at 20°C
         const roughness=0.0015;
         const density=1000;
@@ -63,18 +121,174 @@
         
 
         const resultElement = document.getElementById('result');
+        
+
+    // 定义拟合函数
+    function powerLaw(H, a, b) {
+      return a * Math.pow(H, b);
+    }
+    function naturalLog(x) {
+    // 防止x为0或负数时的MathError
+    if (x <= 0) {
+        throw new Error('Logarithm of non-positive number.');
+    }
+    return Math.log(x);
+    }
+// 拟合函数
+function fitPowerLaw(data) {
+      const n = data.length;
+            let sumLogX = 0, sumLogY = 0, sumLogXLogY = 0, sumLogX2 = 0;
+
+            for (let i = 0; i < n; i++) {
+                const logX = naturalLog(data[i].H); //Math.log(xData[i]);
+                const logY = naturalLog(data[i].q); //Math.log(yData[i]);
+                sumLogX += logX;
+                sumLogY += logY;
+                sumLogXLogY += logX * logY;
+                sumLogX2 += logX * logX;
+            }
+
+            const numeratorB = n * sumLogXLogY - sumLogX * sumLogY;
+            const denominatorB = n * sumLogX2 - sumLogX * sumLogX;
+            
+            if (denominatorB === 0) {
+            throw new Error("Cannot divide by zero. Check your data inputs.");
+            }
+            const b = numeratorB / denominatorB;
+
+            const lnA = (sumLogY - b * sumLogX) / n;
+            const a = Math.exp(lnA);
+
+            return { a, b };
+
+    }
+
+
+function calculate_aHb() {
+    // 实测数据
+    let coordinatesInput = document.getElementById('emmiterdatas').value;
+    
+    // 解析输入
+    const lines = coordinatesInput.trim().split('\n');
+        if (lines.length < 3) {
+            // 数据长度不足，提示用户并清空或重新请求输入
+            alert("管段数据不足，请确保输入了至少3行的信息后重新提交。");
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+        }
+        const data = lines.map(line => {
+            const [H, q] = line.split(',').map(Number);
+            
+            return { H, q };
+        });
+        for(let i=1;i<data.length;i++){
+            if (typeof data[i].H != 'number' || isNaN(data[i].H)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].H}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+            }   
+            if (typeof data[i].q != 'number' || isNaN(data[i].q)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].q}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+            }  
+            
+            
+        }
+
+    
+        
+
+        const { a, b } = fitPowerLaw(data);
+    
+
+        // 销毁之前的图表实例（如果有）
+        // let myChart;
+        if (calculate_aHbChart) {
+            calculate_aHbChart.destroy();
+        }
+
+        // 生成拟合曲线的数据点 data
+        // const fitXData = Array.from({ length: 50 }, (_, i) => 1 + i * (5 - 1) / 49); 1 + 
+        
+        // numLength=40 ; //Math.ceil(data[data.length-1].H) ;
+        // const numLength =Math.floor( Math.max(...data));
+        numLength=Math.ceil(data[data.length-1].H) ; 
+        const fitXData = Array.from({ length:  numLength}, (_, i) => 1+i ); //* Math.ceil(data.length+1) / (numLength-1));
+        const fitYData = fitXData.map(x => a * Math.pow(x, b));
+
+        // 创建图表
+        const ctx = document.getElementById('calculate_aHbChart').getContext('2d');
+        calculate_aHbChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: '实测数据点',
+                        data: data.map(item => ({ x: item.H, y: item.q })),
+                        type: 'scatter',
+                        borderColor: 'Red',
+                        showLine: false,
+                        pointRadius: 5
+                    },
+                    {
+                        label: `q = ${a.toFixed(4)}H^${b.toFixed(4)} l/h`,
+                        data: fitXData.map((x, i) => ({ x, y: fitYData[i] })),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        pointRadius: 0 // 设置点的半径为 0，不显示点
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '工作压力 H（m）'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '流量 q （l/h）'
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.1 // 0 去除曲线的平滑效果，使曲线为折线
+                    }
+                }
+            }
+        });
+
+        pA=a;
+        pB=b;
+    } 
+    // console.log("估计的a值2:", pA);
+    // console.log("估计的b值2:", pB);
+        
 
     function calculate() {
 
         
         
-        // 管道参数
-        // const segments = [
-        //     { L: 80, D: 0.015, roughness: 0.0015 ,space:3 }, // 第一段管
-        //     { L: 20, D: 0.025, roughness: 0.0015 ,space:3},  // 第二段管
-        //     { L: 60, D: 0.050, roughness: 0.0015 ,space:3}   // 第三段管
-        // ];
-
         let coordinatesInput = document.getElementById('segments').value;
         // 解析输入
         const lines = coordinatesInput.trim().split('\n');
@@ -124,7 +338,7 @@
         
 
         // 获取数据
-        const { x_coord, y_coord,yy_coord } = calculateCumulativeHeadLoss(segments);
+        const { x_coord, y_coord,yy_coord ,diffQ} = calculateCumulativeHeadLoss(segments,pA,pB);
         
 
         // 创建图表
@@ -138,7 +352,7 @@
             myChart = new Chart(ctx, {
                 type: 'line', // 图表类型为折线图
                 data: { // 数据定义
-                    labels: x_coord.map(String), // 确保横坐标标签为字符串数组 
+                    labels: x_coord.map(String), // .toString(0), // 确保横坐标标签为字符串数组 
                     datasets: [ // 数据集
                         {
                             label: '水头损失 (m)', // 数据集标题
@@ -147,8 +361,8 @@
                             borderColor: 'rgb(75, 192, 192)', // 边框颜色
                             tension: 0.1 // 曲线张力
                         },
-                        {
-                            label: '灌水器允许水头线 (m)', // 另一个数据集标题
+                        {  
+                            label: `流量偏差率 ${diffQ.toFixed(2)} % / 微喷允许水头损失线 (m)`, // 另一个数据集标题
                             data: yy_coord, // 直接使用 yy_coord 作为数据集，假设它已经是一个配对的数组
                             fill: true, // 不填充图形，为了保持一致性
                             borderColor: 'Red', // 边框颜色
@@ -163,13 +377,23 @@
                             title: {
                                 display: true,
                                 text: '位置 (m)' // X轴标题
-                            }
+                            },
+                            type: 'linear',
+                            position: 'bottom' 
                         },
+                            // ticks: {
+                            //     // 设置刻度相关的属性
+                            //     callback: function (value, index, values) {
+                            //         return value.toFixed(2);
+                            //     }
+                            // },
                         y: { // Y轴设置
                             title: {
                                 display: true,
                                 text: '水头 (m)' // Y轴标题
-                            }
+                            },
+                            type: 'linear',
+                            position: 'left'
                         }
                     }
                 }
@@ -185,7 +409,7 @@
             // const reynoldsNumber = (density * pipeVelocity * pipediameter) / viscosity;
         }
         function calculateDarcyWeisbach( frictionFactor, pipeLength, pipeDiameter, fluidVelocity) {
-            const gravity = 9.81; // 重力加速度 (m/s^2)
+            // const gravity = 9.81; // 重力加速度 (m/s^2)
             
             // 计算摩擦引起的压力头损失
             headLoss = frictionFactor * (pipeLength / pipeDiameter) * (Math.pow(fluidVelocity, 2) / (2 * gravity));
@@ -227,13 +451,15 @@
         }
 
         // 计算水头损失
-        function calculateHeadLoss(totalLength, diameter, flowRate,roughness,formula) {
+        function calculateHeadLoss(Length, diameter, flowRate,roughness,formula) {
             
             // formula = 'darcy-weisbach';
 
             // 计算流速
             const crossSectionalArea = Math.PI * (diameter / 2) ** 2;
             const velocity = flowRate / crossSectionalArea;
+            const hk=0.1*velocity*velocity/(2*gravity) ; 
+
 
             if (formula === 'darcy-weisbach') {
         
@@ -241,13 +467,13 @@
                 const reynoldsNumber = (density * velocity * diameter) / viscosity;
                 
                 frictionFactor=calculateFrictionFactor(reynoldsNumber, roughness, diameter); //reynoldsNumber, diameter,roughness )
-                headLoss = calculateDarcyWeisbach(frictionFactor, totalLength, diameter, velocity);
+                headLoss = calculateDarcyWeisbach(frictionFactor, Length, diameter, velocity);
 
             } else if (formula === 'hazen-williams') {
 
                 // headLoss=flowRate ;//0.01;
             // 使用哈森-威廉姆斯公式计算水头损失  10.67 * Math.pow(Q, 1.852) * Math.pow(C, -1.852) * Math.pow(D, -4.87) * L;
-                headLoss = 10.67  * Math.pow(flowRate, 1.852) * Math.pow(cFactor, -1.852) * Math.pow(diameter, -4.87) * totalLength;
+                headLoss = 10.67  * Math.pow(flowRate, 1.852) * Math.pow(cFactor, -1.852) * Math.pow(diameter, -4.87) * Length;
             } else if (formula === 'sprinkler-irrigation') {
             // sprinkler-irrigation
             let rness = roughness * 1000;
@@ -275,7 +501,7 @@
                     b = 4.77;
                     break;
             }
-            l =totalLength; // pipeLength[i+1]
+            l =Length; // pipeLength[i+1]
             flowq= flowRate; //-nodeq[i]
             flowq=flowq*3600; //换算成 m3/h
             d=diameter;
@@ -287,7 +513,7 @@
                 const reynoldsNumber = (density * velocity * diameter) / viscosity;
                 var d = diameter ; //document.calcarea2.diameter.value;
                 
-                var l =totalLength; //  pipeLength[i+1]; //document.calcarea2.commentl.value;
+                var l =Length; //  pipeLength[i+1]; //document.calcarea2.commentl.value;
                 var flowq = flowRate; //-nodeq[i]; //document.calcarea2.commentq.value;
                 flowq=flowq*1000*3600; // 换算到 l/h
                 d = d*1000; //换算成 mm
@@ -313,14 +539,14 @@
                 
             }
 
-            // 计算摩擦引起的压力头损失
-            // headLoss = f * (L / D) * (Math.pow(v, 2) / (2 * g));
-       
-            return headLoss ; //(f * L * Q ** 2) / (g * D ** 5);
+            // 计算摩擦引起的局部和管段压力头损失
+            
+            headLoss += hk;
+            return headLoss ; 
         }
 
         // 计算累计水头损失
-        function calculateCumulativeHeadLoss(segments) {
+        function calculateCumulativeHeadLoss(segments,bestA,bestB) {
             let cumulativeHF = 0;
             const xValues = [];
             const hfValues = [];
@@ -336,16 +562,24 @@
             xValues.push(0);
             hfValues.push(0);
 
-            const flowRate = parseFloat(document.getElementById('flowq').value);
+            const downSlope = parseFloat(document.getElementById('downSlope').value);
         
-            const Qd = flowRate*0.001/ 3600; // 喷头流量 (m^3/s)
+            // const Qd = flowRate*0.001/ 3600; // 喷头流量 (m^3/s)
             const totHead = parseFloat(document.getElementById('totHead').value);
             const Hd = totHead; // 灌水器工作水头 (m)
+            
 
             const formula = document.getElementById('formula').value;
             
             resultElement.innerHTML='';
             // 假设 n 和 Lngth 已经在外部被正确初始化
+            let Qd = bestA* Math.pow(Hd,bestB) *0.001/ 3600; // 喷头流量 (m^3/s)
+            let Qmin=Qd;
+            let Qsum=0;
+            // console.log("估计的a值:", bestA);
+            // console.log("估计的b值:", bestB);
+            // console.log("估计的Q值:", Qd );
+            // console.log("估计的Hd值:",Hd );
 
             for (const segment of segments) {
                 const dx = segment.space; // 位置步长
@@ -356,24 +590,25 @@
                     q += Qd;
  
                     const hf = calculateHeadLoss(dx, D, q, roughness, formula);
-                    cumulativeHF += hf;
-
+                    cumulativeHF += hf-downSlope*dx;
+                    Qd= bestA* Math.pow(Hd+cumulativeHF,bestB)*0.001 / 3600;
                     xValues.push(x);
                     hfValues.push(cumulativeHF);
-
+                    Qsum=q;
                     qq=q*1000*3600;
                     dd=D*1000;
                     resultElement.innerHTML += `
                         <br/>${n + 1} 段位置: ${x.toFixed(2)} m
-                        <br/>${n + 1} 段流量: ${qq.toFixed(1)} l/h
-                        <br/>${n + 1} 段的管径: ${dd.toFixed(3)} mm
+                        <br/>${n + 1} 段流量: ${qq.toFixed(2)} l/h
+                        <br/>${n + 1} 段的管径: ${dd.toFixed(1)} mm
                         <br/>${n + 1} 水头损失线: ${cumulativeHF.toFixed(4)} m
                     `;
 
                     n++;
                 }
+                // : ${Lngth.toFixed(2)} m 
                 resultElement.innerHTML += `
-                        <br/> 已经变径段的总长: ${Lngth.toFixed(2)} m  <br/>`
+                        <br/> 变径段结束。 <br/>`  
                 Lngth += segment.L;
             }
 
@@ -383,6 +618,12 @@
             }
 
             // resultElement.innerHTML = `<br/>${n+1} 段的管径: ${Lngth.toFixed(2)} m<br/>`;
+            // let Hd = 10; // 这里可以替换为实际的Hd值
+            // let Hmax = 15; // 这里可以替换为实际的Hmax值
+
+            // let maxValue = Math.max(Hd, Hmax);
+
+            // console.log("最大值是：", maxValue);
             for(i=1;i<=n;i +=1){
                 x_coord.push(Lngth-xValues.pop());
                 // xx_coord.push(Lngth-xValues.pop());
@@ -391,8 +632,10 @@
                 yy_coord.push(Hd*0.2);
 
             }
-
-            return { x_coord, y_coord ,yy_coord};
+            let  Qmax=Qd;
+            let Qa=Qsum/(n); //(Qmax+Qmin)/2;
+            let diffQ=(Qmax-Qmin)/Qa*100;
+            return { x_coord, y_coord ,yy_coord,diffQ};
         }
 
         

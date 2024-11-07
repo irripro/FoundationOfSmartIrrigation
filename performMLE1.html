@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最大似然估计结果可视化</title>
+    <!-- 引入Chart.js库 -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+</head>
+
+<body>
+    <canvas id="myChart"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <script>
+        // 生成一些模拟观测数据（这里假设H和对应的Q观测值）
+        const generateMockData = () => {
+            const numDataPoints = 100; // 观测数据点数量
+            const HValues = [];
+            const QValues = [];
+            for (let i = 0; i < numDataPoints; i++) {
+                const h = Math.random() * 10; // 随机生成H值在0到10之间
+                HValues.push(h);
+                // 根据真实的a和b值（这里假设已知真实值用于生成模拟数据）以及噪声生成Q观测值
+                const trueA = 2;
+                const trueB = 1.5;
+                const noise = Math.random() * 0.5 - 0.25; // 随机噪声在-0.25到0.25之间
+                const q = trueA * Math.pow(h, trueB) + noise;
+                QValues.push(q);
+            }
+            return { HValues, QValues };
+        };
+
+        // 似然函数（假设观测数据服从正态分布）
+        const likelihoodFunction = (a, b, HValues, QValues, sigmaSquared) => {
+            let likelihood = 1;
+            const numDataPoints = HValues.length;
+            for (let i = 0; i < numDataPoints; i++) {
+                const h = HValues[i];
+                const q = QValues[i];
+                const mean = a * Math.pow(h, b);
+                const exponent = -((q - mean) ** 2) / (2 * sigmaSquared);
+                likelihood *= Math.exp(exponent) / Math.sqrt(2 * Math.PI * sigmaSquared);
+            }
+            return likelihood;
+        };
+
+        // 对数似然函数（为了方便计算，通常最大化对数似然函数）
+        const logLikelihoodFunction = (a, b, HValues, QValues, sigmaSquared) => {
+            let logLikelihood = 0;
+            const numDataPoints = HValues.length;
+            for (let i = 0; i < numDataPoints; i++) {
+                const h = HValues[i];
+                const q = QValues[i];
+                const mean = a * Math.pow(h, b);
+                const exponent = -((q - mean) ** 2) / (2 * sigmaSquared);
+                logLikelihood += exponent - Math.log(Math.sqrt(2 * Math.PI * sigmaSquared));
+            }
+            return logLikelihood;
+        };
+
+        // 执行最大似然估计
+        const performMLE = () => {
+            const { HValues, QValues } = generateMockData();
+            const sigmaSquared = 0.1; // 假设已知的噪声方差
+
+            // 简单的网格搜索来寻找使对数似然函数最大的a和b值（这里只是示例，实际可使用更优化的算法）
+            let maxLogLikelihood = -Infinity;
+            let bestA = 0;
+            let bestB = 0;
+            for (let a = 0; a < 5; a += 0.1) {
+                for (let b = 0; b < 5; b += 0.1) {
+                    const logLikelihood = logLikelihoodFunction(a, b, HValues, QValues, sigmaSquared);
+                    if (logLikelihood > maxLogLikelihood) {
+                        maxLogLikelihood = logLikelihood;
+                        bestA = a;
+                        bestB = b;
+                    }
+                }
+            }
+
+            console.log("估计的a值:", bestA);
+            console.log("估计的b值:", bestB);
+
+            // const HValues = [1, 2, 3, 4, 5];
+            // const QValues = [5, 4, 6, 2, 7];
+            // const bestA = 2;
+            // const bestB = 3;
+            // 使用Chart.js绘制图表
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '观测数据',
+                            data: HValues.map((h, index) => ({ x: h, y: QValues[index] })),
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            pointRadius: 3
+                        },
+                        {
+                            label: '估计曲线',
+                            data: HValues.map(h => ({ x: h, y: bestA * Math.pow(h, bestB) })),
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            pointRadius: 2,
+                            showLine: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'H值'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Q值'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        performMLE();
+    </script>
+</body>
+
+</html>

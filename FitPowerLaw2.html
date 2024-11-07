@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Q 函数图形显示</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+</head>
+
+<body>
+  <canvas id="myChart"></canvas>
+
+  <script>
+    // 实测数据
+    const data = [
+      { H: 1, q: 2 },
+      { H: 2, q: 4 },
+      { H: 3, q: 8 },
+      { H: 4, q: 16 },
+      { H: 5, q: 32 }
+    ];
+
+    // 拟合函数
+    function fitPowerLaw(data) {
+      const n = data.length;
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+      for (let i = 0; i < n; i++) {
+        const x = Math.log(data[i].H);
+        const y = Math.log(data[i].q);
+
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumXX += x * x;
+      }
+
+      const b = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      const a = Math.exp((sumY - b * sumX) / n);
+
+      return { a, b };
+    }
+
+    const { a, b } = fitPowerLaw(data);
+
+    // 生成图形
+    const ctx = document.getElementById('myChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: 10 }, (_, i) => i + 1),
+        datasets: [
+          {
+            label: '实测数据点',
+            data: data.map(item => ({ x: item.H, y: item.q })),
+            type:'scatter',
+            showLine: false
+          },
+          {
+            label: `q = ${a.toFixed(2)}H^${b.toFixed(2)}`,
+            data: [],
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'H'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'q'
+            }
+          }
+        },
+        elements: {
+          line: {
+            tension: 0 // 去除曲线的平滑效果，使曲线为折线
+          }
+        }
+      }
+    });
+
+    // 计算拟合曲线的点并添加到数据集中
+    const fittedData = Array.from({ length: 10 }, (_, i) => a * Math.pow(i + 1, b));
+    const dataset = Chart.getChart("myChart").data.datasets[1];
+    dataset.data = fittedData.map((value, index) => ({ x: index + 1, y: value }));
+    Chart.getChart("myChart").update();
+  </script>
+</body>
+
+</html>

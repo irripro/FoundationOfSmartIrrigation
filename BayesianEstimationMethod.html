@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 900px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
+        .result { margin-top: 20px; }
+      </style>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+
+</head>
+
+<body>
+  <!-- <canvas id="myChart"></canvas> -->
+  <H1>从输入数据，用贝叶斯估计法 对 q=f(H) 拟合函数 Q=aH^b ，单位： m3/h，并显示图形</H1>
+
+  <p>输入实测参数 (压力 H: 13 m , 流量 Q: 9.3 m3/h ）, 请使用英文“,”分隔数据。例如: 13,19.3)：</p>
+
+  <div class="container">
+  <textarea id="datas" rows="10"></textarea>
+  <canvas id="myChart"></canvas>
+  <button onclick="calculate()"><h2>计算</h2></button>
+  </br>
+  
+  </div>
+  <script>
+    // 假设一些已知数据
+    // const knownHValues = [1, 2, 3, 4, 5];
+    // const knownQValues = [1, 4.3, 9.5, 15, 24.8];
+        // 生成一些模拟观测数据（这里假设H和对应的Q观测值） 
+    let myChart = null;
+
+    const generateMockData = () => {
+        // const numDataPoints = 100; // 观测数据点数量
+        const HValues = [];
+        const QValues = [];
+
+    // 实测数据
+    let coordinatesInput = document.getElementById('datas').value;
+    
+    // 解析输入
+    const lines = coordinatesInput.trim().split('\n');
+        if (lines.length < 3) {
+            // 数据长度不足，提示用户并清空或重新请求输入
+            alert("管段数据不足，请确保输入了至少3行的信息后重新提交。");
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+        }
+        const data = lines.map(line => {
+            const [H, q] = line.split(',').map(Number);
+            
+            return { H, q };
+        });
+        for(let i=1;i<data.length;i++){
+            if (typeof data[i].H != 'number' || isNaN(data[i].H)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].H}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            // 或者触发重新输入的逻辑
+            return; // 结束当前函数执行，避免处理不完整数据
+            }   
+            if (typeof data[i].q != 'number' || isNaN(data[i].q)) {
+            // 数据错误，提示用户并清空或重新请求输入
+                let msg = `管段 ${i+1} 的数据[${data[i].q}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
+                alert(msg);
+            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
+            
+            
+            return; // 结束当前函数执行，避免处理不完整数据
+            }  
+            
+            
+        }
+        
+        for (let i = 0; i < data.length ; i++) {
+            // numDataPoints const h = Math.random() * 10; // 随机生成H值在0到10之间
+            HValues[i]=data[i].H;
+            // 根据真实的a和b值（这里假设已知真实值用于生成模拟数据）以及噪声生成Q观测值
+            // const trueA = 0.2;
+            // const trueB = 1.5;
+            // const noise = Math.random() * 0.5 - 0.25; // 随机噪声在-0.25到0.25之间
+            // const q = trueA * Math.pow(h, trueB) + noise;
+            QValues[i]=data[i].q;
+        }
+    return { HValues, QValues };
+    }
+function calculate() {
+    const testChart = document.getElementById('myChart');
+    if (!testChart) {
+        console.error('myChart元素未找到，请检查HTML结构');
+        return;
+    }else{
+        if (myChart) {
+            myChart.destroy();
+        }
+    }
+
+    
+    // const knownHValues = [1, 2, 3, 4, 5];
+    // const knownQValues = [1, 4.3, 9.5, 15, 24.8];
+    // HValues=knownHValues;
+    // QValues=knownQValues;
+    // const {knownHValues,knownQValues}=generateMockData();
+    const { HValues, QValues } = generateMockData();
+    // const { HValues, QValues } = generateMockData();
+
+    let numDataPoints = HValues.length;
+    // for (let i = 0; i < numDataPoints; i++) {
+    //     console.log("HValues值:", HValues[i]);
+    //     console.log("QValues值:", QValues[i]);
+    // }
+        // 贝叶斯估计的初始值
+
+    let aEstimate = 1;
+    let bEstimate = 1;
+
+    // 贝叶斯估计的迭代次数
+    const iterations = 1000;
+    // 收敛阈值
+    const convergenceThreshold = 0.0001;
+    // 用于记录连续收敛的次数
+    let consecutiveConvergenceCount = 0;
+    // 最大连续收敛次数（这里设为3次，可根据实际情况调整）
+    const maxConsecutiveConvergence = 3;
+    // 进行贝叶斯估计迭代
+    // let numDataPoints = knownHValues.length;
+    for (let i = 0; i < iterations; i++) {
+        let prevA = aEstimate;
+        let prevB = bEstimate;
+      for (let j = 0; j < numDataPoints; j++) {
+        const h = HValues[j];
+        const q = QValues[j];
+        const predictedQ = aEstimate * Math.pow(h, bEstimate);
+        const error = q - predictedQ;
+        aEstimate += error / Math.pow(h, bEstimate);
+        bEstimate += error * aEstimate * Math.log(h) / predictedQ;
+      }
+        const aChange = Math.abs(aEstimate - prevA);
+        const bChange = Math.abs(bEstimate - prevB);
+        if (aChange < convergenceThreshold && bChange < convergenceThreshold) {
+            consecutiveConvergenceCount++;
+            if (consecutiveConvergenceCount >= maxConsecutiveConvergence) {
+                break;
+            }
+        } else {
+            consecutiveConvergenceCount = 0;
+        }
+    }
+
+    console.log("aEstimate值:", aEstimate);
+    console.log("bEstimate值:", bEstimate);
+
+    // 生成一些测试数据用于绘图
+    const testHValues = [0, 1, 2, 3, 4, 5, 6];
+    const testQValues = testHValues.map(h => aEstimate * Math.pow(h, bEstimate));
+
+    // 使用 Chart.js 绘制图表
+    // 销毁之前的图表实例（如果有）
+        //
+    
+    const ctx = document.getElementById('myChart').getContext('2d');
+    
+    myChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: testHValues,
+        datasets: [{
+                    label: '观测数据',
+                    data: HValues.map((h, index) => ({ x: h, y: QValues[index] })),
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    showLine: false,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: `Q = ${aEstimate.toFixed(4)}H^${bEstimate.toFixed(4)} m3/h`,
+                    data: testQValues,
+                    borderColor: 'blue',
+                    pointRadius: 0,
+
+                    fill: false
+        }
+    ]
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Q = aH^b Plot'
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'H'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Q'
+            }
+          }
+        },
+        elements: {
+                    line: {
+                        tension: 0.2 // =0 去除曲线的平滑效果，使曲线为折线
+                    }
+                }
+      }
+    });
+}
+ 
+</script>
+</body>
+
+</html>
