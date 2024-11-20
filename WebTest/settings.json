@@ -1,0 +1,9 @@
+{
+    "python.pythonPath": "venv/bin/python",  # 根据你的虚拟环境路径调整
+    "editor.formatOnSave": true,
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact"
+    ],
+    "prettier.tabWidth": 2
+}
