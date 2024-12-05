@@ -1,0 +1,61 @@
+Wofost81_NWLP_MLWB_CNB
+
+Water and Nitrogen limited
+
+
+AgroManagement:
+- 1999-08-01:
+    CropCalendar:
+        crop_name: wheat
+        variety_name: winter-wheat
+        crop_start_date: 1999-09-15
+        crop_start_type: sowing
+        crop_end_date:
+        crop_end_type: maturity
+        max_duration: 300
+    TimedEvents:
+    -   event_signal: irrigate
+        name:  Timed irrigation events
+        comment: All irrigation amounts in cm
+        events_table:
+        - 2000-05-25: {irrigation_amount: 3.0}
+        - 2000-06-30: {irrigation_amount: 2.5}
+    StateEvents:
+    -   event_signal: apply_n
+        event_state: DVS
+        zero_condition: rising
+        name: DVS-based N application table
+        comment: all fertilizer amounts in kg/ha
+        events_table:
+        - 0.3: {N_amount : 1, N_recovery: 0.7}
+        - 0.6: {N_amount: 11, N_recovery: 0.7}
+        - 1.12: {N_amount: 21, N_recovery: 0.7}
+- 2000-09-01:
+    CropCalendar:
+    TimedEvents:
+    StateEvents
+- 2001-03-01:
+    CropCalendar:
+        crop_name: maize
+        variety_name: fodder-maize
+        crop_start_date: 2001-04-15
+        crop_start_type: sowing
+        crop_end_date:
+        crop_end_type: maturity
+        max_duration: 200
+    TimedEvents:
+    -   event_signal: irrigate
+        name:  Timed irrigation events
+        comment: All irrigation amounts in cm
+        events_table:
+        - 2001-06-01: {irrigation_amount: 2.0}
+        - 2001-07-21: {irrigation_amount: 5.0}
+        - 2001-08-18: {irrigation_amount: 3.0}
+        - 2001-09-19: {irrigation_amount: 2.5}
+    -   event_signal: apply_n
+        name:  Timed N application table
+        comment: All fertilizer amounts in kg/ha
+        events_table:
+        - 2001-05-25: {N_amount : 50, N_recovery: 0.7}
+        - 2001-07-05: {N_amount : 70, N_recovery: 0.7}
+    StateEvents:
