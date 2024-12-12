@@ -14,82 +14,14 @@ AgroManagement:
       name: Irrigation application table
       comment: All irrigation amounts in cm
       events_table:
-      - 2020-05-25:
-          amount: 0.02
-          efficiency: 1
-      - 2020-05-28:
-          amount: 0.08
-          efficiency: 1
-      - 2020-06-03:
-          amount: 0.03
-          efficiency: 1
-      - 2020-06-04:
-          amount: 0.04
-          efficiency: 1
-      - 2020-06-05:
-          amount: 0.04
-          efficiency: 1
-      - 2020-06-15:
-          amount: 0.38
-          efficiency: 1
-      - 2020-06-16:
-          amount: 0.38
-          efficiency: 1
-      - 2020-06-24:
-          amount: 0.38
-          efficiency: 1
-      - 2020-06-25:
-          amount: 0.38
-          efficiency: 1
-      - 2020-07-03:
-          amount: 0.13
-          efficiency: 1
-      - 2020-07-19:
-          amount: 0.25
-          efficiency: 1
-      - 2020-07-20:
-          amount: 0.25
-          efficiency: 1
-      - 2020-07-26:
-          amount: 0.25
-          efficiency: 1
-      - 2020-07-30:
-          amount: 0.38
-          efficiency: 1
-      - 2020-08-05:
-          amount: 0.5
-          efficiency: 1
-      - 2020-08-11:
-          amount: 0.5
-          efficiency: 1
-          amount: 0.38
-          efficiency: 1
       - 2020-08-17:
           amount: 0.38
           efficiency: 1
       - 2020-08-23:
           amount: 0.38
           efficiency: 1
-       - 2020-08-30:
-          amount: 0.38
-          efficiency: 1
       - 2020-08-31:
           amount: 0.38
-          efficiency: 1
-      - 2020-09-07:
-          amount: 0.25
-          efficiency: 1
-      - 2020-09-08:
-          amount: 0.25
-          efficiency: 1
-      - 2020-09-15:
-          amount: 0.25
-          efficiency: 1
-       - 2020-09-21:
-          amount: 0.25
-          efficiency: 1
-      - 2020-09-22:
-          amount: 0.13
           efficiency: 1
     - event_signal: apply_n_snomin
       name: Timed N application table
