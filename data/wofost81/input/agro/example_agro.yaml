@@ -14,37 +14,46 @@ AgroManagement:
       name: Irrigation application table
       comment: All irrigation amounts in cm
       events_table:
-      - 2020-08-17:
-          amount: 0.38
+      - 2020-06-17:
+          amount: 1.40
           efficiency: 1
-      - 2020-08-23:
-          amount: 0.38
+      - 2020-06-21:
+          amount: 1.6
           efficiency: 1
-      - 2020-08-31:
-          amount: 0.38
+      - 2020-06-30:
+          amount: 2.30
+          efficiency: 1
+      - 2020-07-01:
+          amount: 1.6
+          efficiency: 1
+      - 2020-08-03:
+          amount: 2.6
+          efficiency: 1
+      - 2020-08-30:
+          amount: 2.6
           efficiency: 1
     - event_signal: apply_n_snomin
       name: Timed N application table
       comment: All fertilizer N amounts in kg/ha
       events_table:
       - 2020-04-09:
-          amount: 125
+          amount: 100
           application_depth: 10
           cnratio: 0
           f_orgmat: 0
           f_NH4N: 0.5
           f_NO3N: 0.5
           initial_age: 0
-      - 2020-05-01:
-          amount: 85
+      - 2020-06-17:
+          amount: 120
           application_depth: 10
           cnratio: 0
           f_orgmat: 0
           f_NH4N: 0.5
           f_NO3N: 0.5
           initial_age: 0
-      - 2020-06-16:
-          amount: 110
+      - 2020-06-21:
+          amount: 100
           application_depth: 10
           cnratio: 0
           f_orgmat: 0
