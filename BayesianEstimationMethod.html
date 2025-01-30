@@ -1,225 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .container { max-width: 900px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
-        textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
-        .result { margin-top: 20px; }
-      </style>
-  <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayesian Estimation for Q = aH^b</title>
+    <!-- 引入 Plotly.js 用于绘图 -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 
 <body>
-  <!-- <canvas id="myChart"></canvas> -->
-  <H1>从输入数据，用贝叶斯估计法 对 q=f(H) 拟合函数 Q=aH^b ，单位： m3/h，并显示图形</H1>
-
-  <p>输入实测参数 (压力 H: 13 m , 流量 Q: 9.3 m3/h ）, 请使用英文“,”分隔数据。例如: 13,19.3)：</p>
-
-  <div class="container">
-  <textarea id="datas" rows="10"></textarea>
-  <canvas id="myChart"></canvas>
-  <button onclick="calculate()"><h2>计算</h2></button>
-  </br>
-  
-  </div>
-  <script>
-    // 假设一些已知数据
-    // const knownHValues = [1, 2, 3, 4, 5];
-    // const knownQValues = [1, 4.3, 9.5, 15, 24.8];
-        // 生成一些模拟观测数据（这里假设H和对应的Q观测值） 
-    let myChart = null;
-
-    const generateMockData = () => {
-        // const numDataPoints = 100; // 观测数据点数量
-        const HValues = [];
-        const QValues = [];
-
-    // 实测数据
-    let coordinatesInput = document.getElementById('datas').value;
-    
-    // 解析输入
-    const lines = coordinatesInput.trim().split('\n');
-        if (lines.length < 3) {
-            // 数据长度不足，提示用户并清空或重新请求输入
-            alert("管段数据不足，请确保输入了至少3行的信息后重新提交。");
-            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
-            coordinatesInput.value = ""; // 假设coordinatesInput是一个DOM元素，这样可以清空输入框
-            // 或者触发重新输入的逻辑
-            return; // 结束当前函数执行，避免处理不完整数据
-        }
-        const data = lines.map(line => {
-            const [H, q] = line.split(',').map(Number);
-            
-            return { H, q };
-        });
-        for(let i=1;i<data.length;i++){
-            if (typeof data[i].H != 'number' || isNaN(data[i].H)) {
-            // 数据错误，提示用户并清空或重新请求输入
-                let msg = `管段 ${i+1} 的数据[${data[i].H}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
-                alert(msg);
-            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
-            
-            // 或者触发重新输入的逻辑
-            return; // 结束当前函数执行，避免处理不完整数据
-            }   
-            if (typeof data[i].q != 'number' || isNaN(data[i].q)) {
-            // 数据错误，提示用户并清空或重新请求输入
-                let msg = `管段 ${i+1} 的数据[${data[i].q}]错误，请确保每行输入了至少2列（H，q）然后重新提交。`;
-                alert(msg);
-            // 如果有重置输入区域的逻辑，可以在这里添加，例如：
-            
-            
-            return; // 结束当前函数执行，避免处理不完整数据
-            }  
-            
-            
-        }
-        
-        for (let i = 0; i < data.length ; i++) {
-            // numDataPoints const h = Math.random() * 10; // 随机生成H值在0到10之间
-            HValues[i]=data[i].H;
-            // 根据真实的a和b值（这里假设已知真实值用于生成模拟数据）以及噪声生成Q观测值
-            // const trueA = 0.2;
-            // const trueB = 1.5;
-            // const noise = Math.random() * 0.5 - 0.25; // 随机噪声在-0.25到0.25之间
-            // const q = trueA * Math.pow(h, trueB) + noise;
-            QValues[i]=data[i].q;
-        }
-    return { HValues, QValues };
-    }
-function calculate() {
-    const testChart = document.getElementById('myChart');
-    if (!testChart) {
-        console.error('myChart元素未找到，请检查HTML结构');
-        return;
-    }else{
-        if (myChart) {
-            myChart.destroy();
-        }
-    }
-
-    
-    // const knownHValues = [1, 2, 3, 4, 5];
-    // const knownQValues = [1, 4.3, 9.5, 15, 24.8];
-    // HValues=knownHValues;
-    // QValues=knownQValues;
-    // const {knownHValues,knownQValues}=generateMockData();
-    const { HValues, QValues } = generateMockData();
-    // const { HValues, QValues } = generateMockData();
-
-    let numDataPoints = HValues.length;
-    // for (let i = 0; i < numDataPoints; i++) {
-    //     console.log("HValues值:", HValues[i]);
-    //     console.log("QValues值:", QValues[i]);
-    // }
-        // 贝叶斯估计的初始值
-
-    let aEstimate = 1;
-    let bEstimate = 1;
-
-    // 贝叶斯估计的迭代次数
-    const iterations = 1000;
-    // 收敛阈值
-    const convergenceThreshold = 0.0001;
-    // 用于记录连续收敛的次数
-    let consecutiveConvergenceCount = 0;
-    // 最大连续收敛次数（这里设为3次，可根据实际情况调整）
-    const maxConsecutiveConvergence = 3;
-    // 进行贝叶斯估计迭代
-    // let numDataPoints = knownHValues.length;
-    for (let i = 0; i < iterations; i++) {
-        let prevA = aEstimate;
-        let prevB = bEstimate;
-      for (let j = 0; j < numDataPoints; j++) {
-        const h = HValues[j];
-        const q = QValues[j];
-        const predictedQ = aEstimate * Math.pow(h, bEstimate);
-        const error = q - predictedQ;
-        aEstimate += error / Math.pow(h, bEstimate);
-        bEstimate += error * aEstimate * Math.log(h) / predictedQ;
-      }
-        const aChange = Math.abs(aEstimate - prevA);
-        const bChange = Math.abs(bEstimate - prevB);
-        if (aChange < convergenceThreshold && bChange < convergenceThreshold) {
-            consecutiveConvergenceCount++;
-            if (consecutiveConvergenceCount >= maxConsecutiveConvergence) {
-                break;
+    <!-- 用于显示图形的 div -->
+    <div id="plot"></div>
+    <!-- 引入 JavaScript 代码 -->
+    <script>
+        // 模拟一些观测数据
+        // const H = [1, 2, 3, 4, 5];
+        // const Q = [2, 7, 18, 32, 50];
+        const H = [10.00 , 12.00 , 14.00 , 16.00 , 18.00 , 20.00 ];
+        const Q = [20.58 ,31.44 ,44.39 ,56.37 ,68.33 ,70.25 ];
+        // 定义似然函数，添加噪声方差参数
+        function likelihood(theta, H, Q, noiseVariance = 1) {
+            const [a, b] = theta;
+            let logLikelihood = 0;
+            for (let i = 0; i < H.length; i++) {
+                const predictedQ = a * Math.pow(H[i], b);
+                // 假设误差服从正态分布
+                const error = Q[i] - predictedQ;
+                logLikelihood += -0.5 * (Math.pow(error, 2) / noiseVariance);
             }
-        } else {
-            consecutiveConvergenceCount = 0;
+            return Math.exp(logLikelihood);
         }
-    }
 
-    console.log("aEstimate值:", aEstimate);
-    console.log("bEstimate值:", bEstimate);
-
-    // 生成一些测试数据用于绘图
-    const testHValues = [0, 1, 2, 3, 4, 5, 6];
-    const testQValues = testHValues.map(h => aEstimate * Math.pow(h, bEstimate));
-
-    // 使用 Chart.js 绘制图表
-    // 销毁之前的图表实例（如果有）
-        //
-    
-    const ctx = document.getElementById('myChart').getContext('2d');
-    
-    myChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: testHValues,
-        datasets: [{
-                    label: '观测数据',
-                    data: HValues.map((h, index) => ({ x: h, y: QValues[index] })),
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    showLine: false,
-                    borderWidth: 2,
-                    pointRadius: 3
-                },
-                {
-                    label: `Q = ${aEstimate.toFixed(4)}H^${bEstimate.toFixed(4)} m3/h`,
-                    data: testQValues,
-                    borderColor: 'blue',
-                    pointRadius: 0,
-
-                    fill: false
+        // 定义先验函数，使用更合理的先验
+        function prior(theta) {
+            const [a, b] = theta;
+            // 对数正态先验
+            const logAPrior = -0.5 * Math.pow((Math.log(a) - 0) / 1, 2);
+            const logBPrior = -0.5 * Math.pow((Math.log(b) - 0) / 1, 2);
+            return Math.exp(logAPrior + logBPrior);
         }
-    ]
-      },
-      options: {
-        responsive: true,
-        title: {
-          display: true,
-          text: 'Q = aH^b Plot'
-        },
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: 'H'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'Q'
-            }
-          }
-        },
-        elements: {
-                    line: {
-                        tension: 0.2 // =0 去除曲线的平滑效果，使曲线为折线
-                    }
+
+        // 定义后验函数
+        function posterior(theta, H, Q) {
+            return likelihood(theta, H, Q) * prior(theta);
+        }
+
+        // 使用 Metropolis-Hastings 算法进行采样
+        function metropolisHastings(nSamples, initialTheta, H, Q) {
+            let currentTheta = initialTheta;
+            let samples = [];
+            let acceptanceCount = 0;
+            let stepSize = [0.1, 0.1]; // 初始步长
+
+            for (let i = 0; i < nSamples; i++) {
+                // 生成提议点
+                const proposalTheta = [
+                    currentTheta[0] * Math.exp(stepSize[0] * (Math.random() - 0.5)),
+                    currentTheta[1] * Math.exp(stepSize[1] * (Math.random() - 0.5))
+                ];
+
+                // 计算接受率
+                const acceptanceRatio = posterior(proposalTheta, H, Q) / posterior(currentTheta, H, Q);
+                if (Math.random() < acceptanceRatio) {
+                    currentTheta = proposalTheta;
+                    acceptanceCount++;
                 }
-      }
-    });
-}
- 
-</script>
+
+                samples.push(currentTheta);
+
+                // 自适应步长调整
+                if ((i + 1) % 100 === 0) {
+                    const acceptanceRate = acceptanceCount / 100;
+                    if (acceptanceRate > 0.4) {
+                        stepSize = [stepSize[0] * 1.1, stepSize[1] * 1.1];
+                    } else if (acceptanceRate < 0.2) {
+                        stepSize = [stepSize[0] * 0.9, stepSize[1] * 0.9];
+                    }
+                    acceptanceCount = 0;
+                }
+            }
+            return samples;
+        }
+
+        // 运行 Metropolis-Hastings 算法
+        const nSamples =50000; // 进一步增加采样次数
+        const initialTheta = [0.501, 1.8]; // 调整初始值
+        const samples = metropolisHastings(nSamples, initialTheta, H, Q);
+
+        // 去除 burn-in 期
+        const burnIn = Math.floor(nSamples * 0.3); // 增加 burn-in 比例
+        const validSamples = samples.slice(burnIn);
+
+        // 计算参数的均值作为估计值
+        let sumA = 0;
+        let sumB = 0;
+        for (let i = 0; i < validSamples.length; i++) {
+            sumA += validSamples[i][0];
+            sumB += validSamples[i][1];
+        }
+        const estimatedA = sumA / validSamples.length;
+        const estimatedB = sumB / validSamples.length;
+        console.log('估计的 a:', estimatedA);
+        console.log('估计的 b:', estimatedB);
+        // 生成预测数据
+        const H_pred = [];
+        const Q_pred = [];
+        for (let h = 0; h <= H[H.length-1]; h += 0.1) {
+            H_pred.push(h);
+            Q_pred.push(estimatedA * Math.pow(h, estimatedB));
+        }
+
+        // 使用 Plotly 绘制图形
+        const trace1 = {
+            x: H,
+            y: Q,
+            mode: 'markers',
+            name: '观测数据'
+        };
+
+        const trace2 = {
+            x: H_pred,
+            y: Q_pred,
+            mode: 'lines',
+            name: '预测曲线'
+        };
+
+        const data = [trace1, trace2];
+
+        const layout = {
+            title: 'Q = aH^b 的贝叶斯估计',
+            xaxis: {
+                title: 'H'
+            },
+            yaxis: {
+                title: 'Q'
+            }
+        };
+
+        Plotly.newPlot('plot', data, layout);
+    </script>
 </body>
 
 </html>

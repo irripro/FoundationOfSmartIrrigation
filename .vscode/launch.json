@@ -15,7 +15,7 @@
             "name": "Launch Edge",
             "request": "launch",
             "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//Sprinkler Irrigation Lateral Selection.html",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//BayesianEstimationMethod.html",
             "webRoot": "${workspaceFolder}"
         },
         
