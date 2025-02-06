@@ -11,21 +11,21 @@
         //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///performMLE.html",
         //     "webRoot": "${workspaceFolder}"
         // },
-        {
-            "name": "Launch Edge",
-            "request": "launch",
-            "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//BayesianEstimationMethod.html",
-            "webRoot": "${workspaceFolder}"
-        },
-        
         // {
         //     "name": "Launch Edge",
         //     "request": "launch",
         //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//FitPowerLaw_l_h.html",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//BayesianEstimationMethod.html",
         //     "webRoot": "${workspaceFolder}"
         // },
+        
+        {
+            "name": "Launch Edge",
+            "request": "launch",
+            "type": "msedge",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//梯形渠道水力计算.html",
+            "webRoot": "${workspaceFolder}"
+        },
         
         
         // {

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>梯形渠道水力计算</title>
+    <style>
+        .container { display: flex; padding: 20px; }
+        .controls { width: 300px; margin-right: 30px; }
+        .input-group { margin: 10px 0; }
+        label { display: inline-block; width: 120px; }
+        input { width: 100px; padding: 5px; }
+        canvas { border: 1px solid #ccc; }
+        button { display: block; width: 100%; margin: 10px 0; }
+        .results { margin-top: 20px; }
+        /* ...保持原有样式不变... */
+        .dimension { stroke: #666; stroke-width: 1; }
+        .dimension-text { font: 12px Arial; fill: #333; }
+        .water-level { stroke: #2196F3; stroke-width: 2; }
+        .structure { stroke: #333; stroke-width: 1.5; }
+        .extension { stroke-dasharray: 5,5; stroke: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="input-group">
+                <label>底宽 b(m):</label>
+                <input type="number" id="b" value="2.0" step="0.1">
+            </div>
+            <div class="input-group">
+                <label>边坡系数 z:</label>
+                <input type="number" id="z" value="1.5" step="0.1">
+            </div>
+            <div class="input-group">
+                <label>水深 h(m):</label>
+                <input type="number" id="y" value="1.0" step="0.1">
+            </div>
+            <div class="input-group">
+                <label>底坡 i:</label>
+                <input type="number" id="S" value="0.001" step="0.0001">
+            </div>
+            <div class="input-group">
+                <label>曼宁系数 n:</label>
+                <input type="number" id="n" value="0.025" step="0.001">
+            </div>
+            <button onclick="updateAll()" ><h3> 计算 </h3></button>
+            <div class="results">
+                <h3>计算结果：</h3>
+                <p>过水面积 A: <span id="A">0</span> m²</p>
+                <p>湿周 P: <span id="P">0</span> m</p>
+                <p>水力半径 R: <span id="R">0</span> m</p>
+                <p>流量 Q: <span id="Q">0</span> m³/s</p>
+            </div>
+        </div>
+        <canvas id="channelCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <script>
+        function calculateHydraulics() {
+            const b = parseFloat(document.getElementById('b').value);
+            const z = parseFloat(document.getElementById('z').value);
+            const y = parseFloat(document.getElementById('y').value);
+            const S = parseFloat(document.getElementById('S').value);
+            const n = parseFloat(document.getElementById('n').value);
+
+            // 梯形断面水力计算
+            const A = (b + z * y) * y;         // 过水面积
+            const P = b + 2 * y * Math.sqrt(1 + z*z); // 湿周
+            const R = A / P;                   // 水力半径
+            const Q = (A * Math.pow(R, 2/3) * Math.sqrt(S)) / n; // 曼宁公式计算流量
+
+            return {A, P, R, Q};
+        }
+
+        function drawChannel() {
+            const canvas = document.getElementById('channelCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const b = parseFloat(document.getElementById('b').value);
+            const z = parseFloat(document.getElementById('z').value);
+            const y = parseFloat(document.getElementById('y').value);
+
+            // 绘制参数
+            const scale = 40;
+            const baseY = 250;
+            const totalHeight = y * 1.2; // 总显示高度为水深的1.2倍
+            const topY = baseY - totalHeight * scale;
+
+            // 计算关键点坐标
+            const points = {
+                leftBase:  {x: canvas.width/2 - b/2*scale, y: baseY},
+                rightBase: {x: canvas.width/2 + b/2*scale, y: baseY},
+                leftTop:   {x: canvas.width/2 - (b/2 + z*totalHeight)*scale, y: topY},
+                rightTop:  {x: canvas.width/2 + (b/2 + z*totalHeight)*scale, y: topY},
+                waterLine: {y: baseY - y*scale}
+            };
+
+            // 绘制渠道结构
+            ctx.strokeStyle = '#333';
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(points.leftBase.x, points.leftBase.y);
+            ctx.lineTo(points.leftTop.x, points.leftTop.y);
+            ctx.lineTo(points.rightTop.x, points.rightTop.y);
+            ctx.lineTo(points.rightBase.x, points.rightBase.y);
+            ctx.closePath();
+            ctx.stroke();
+
+            // 绘制延长部分（虚线）
+            ctx.strokeStyle = '#999';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(points.leftTop.x, points.leftTop.y);
+            ctx.lineTo(points.leftTop.x - 20, points.leftTop.y - 20);
+            ctx.moveTo(points.rightTop.x, points.rightTop.y);
+            ctx.lineTo(points.rightTop.x + 20, points.rightTop.y - 20);
+            ctx.stroke();
+
+            // 绘制水深线
+            ctx.setLineDash([]);
+            ctx.strokeStyle = '#2196F3';
+            ctx.beginPath();
+            ctx.moveTo(points.leftBase.x, points.waterLine.y);
+            ctx.lineTo(points.rightBase.x, points.waterLine.y);
+            ctx.stroke();
+
+            // 绘制尺寸标注
+            drawDimension(ctx, {
+                start: points.leftBase,
+                end: points.rightBase,
+                text: `b=${b}m`,
+                offset: 20
+            });
+
+            drawDimension(ctx, {
+                start: points.leftBase,
+                end: {x: points.leftTop.x, y: points.leftTop.y},
+                text: `z=${z}`,
+                offset: 20,
+                angle: Math.atan(1/z)
+            });
+
+            drawDimension(ctx, {
+                start: points.leftBase,
+                end: {x: points.leftBase.x, y: points.waterLine.y},
+                text: `h=${y}m`,
+                offset: y*10-10
+            });
+
+            drawDimension(ctx, {
+                start: {x: points.leftTop.x, y: points.leftTop.y},
+                end: {x: points.leftTop.x, y: points.waterLine.y},
+                text: `断面尺寸`,
+                offset: -40,
+                dash: true
+            });
+        }
+
+        function drawDimension(ctx, config) {
+            ctx.save();
+            ctx.strokeStyle = config.dash ? '#999' : '#666';
+            ctx.setLineDash(config.dash ? [5,5] : []);
+            
+            // 绘制标注线
+            const midX = (config.start.x + config.end.x)/2;
+            const midY = (config.start.y + config.end.y)/2;
+            
+            ctx.beginPath();
+            ctx.moveTo(config.start.x, config.start.y);
+            ctx.lineTo(config.end.x, config.end.y);
+            ctx.stroke();
+
+            // 绘制标注文字
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            
+            if (config.angle) {
+                ctx.save();
+                ctx.translate(midX, midY);
+                ctx.rotate(config.angle);
+                ctx.fillText(config.text, 0, config.offset);
+                ctx.restore();
+            } else {
+                ctx.fillText(config.text, midX, midY + config.offset);
+            }
+            
+            ctx.restore();
+        }
+
+        function updateAll() {
+            const results = calculateHydraulics();
+            
+            // 更新计算结果
+            document.getElementById('A').textContent = results.A.toFixed(3);
+            document.getElementById('P').textContent = results.P.toFixed(3);
+            document.getElementById('R').textContent = results.R.toFixed(3);
+            document.getElementById('Q').textContent = results.Q.toFixed(3);
+            
+            // 更新图形
+            drawChannel();
+        }
+
+        // 初始化计算
+        updateAll();
+    </script>
+</body>
+</html>
+
+
+

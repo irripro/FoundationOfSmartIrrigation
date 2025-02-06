@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>无压圆管均匀流分析计算器</title>
+    <style>
+        .container {
+            display: flex;
+            padding: 20px;
+            gap: 30px;
+        }
+        .input-section {
+            width: 300px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+        }
+        input {
+            width: 150px;
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <h2>输入参数</h2>
+            <div class="input-group">
+                <label>直径 D (m):</label>
+                <input type="number" id="diameter" step="0.1" value="1.0">
+            </div>
+            <div class="input-group">
+                <label>底坡 S (m/m):</label>
+                <input type="number" id="slope" step="0.0001" value="0.001">
+            </div>
+            <div class="input-group">
+                <label>曼宁系数 n:</label>
+                <input type="number" id="n" step="0.001" value="0.013">
+            </div>
+            <div class="input-group">
+                <label>水深 h (m):</label>
+                <input type="number" id="depth" step="0.01" value="0.5">
+            </div>
+            <button onclick="calculate()">计算</button>
+            <div class="result">
+                <h3>计算结果</h3>
+                <p>流量 Q: <span id="Q">0.000</span> m³/s</p>
+                <p>流速 v: <span id="v">0.000</span> m/s</p>
+            </div>
+        </div>
+        <div>
+            <h2>管道示意图</h2>
+            <canvas id="pipeCanvas" width="600" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            // 获取输入参数
+            const D = parseFloat(document.getElementById('diameter').value);
+            const S = parseFloat(document.getElementById('slope').value);
+            const n = parseFloat(document.getElementById('n').value);
+            const h = parseFloat(document.getElementById('depth').value);
+
+            // 输入验证
+            if ([D, S, n, h].some(v => v <= 0 || isNaN(v)) || h > D) {
+                alert("请输入有效的正数参数且水深不超过直径！");
+                return;
+            }
+
+            // 水力计算
+            const r = D / 2;
+            const theta = 2 * Math.acos((r - h) / r);
+            const A = (r**2 / 2) * (theta - Math.sin(theta));
+            const P = r * theta;
+            const R = A / P;
+            const Q = (A / n) * Math.pow(R, 2/3) * Math.sqrt(S);
+            const v = Q / A;
+
+            // 更新计算结果
+            document.getElementById('Q').textContent = Q.toFixed(3);
+            document.getElementById('v').textContent = v.toFixed(3);
+
+            // 更新图形
+            drawPipe(D, h);
+        }
+
+        function drawPipe(D, h) {
+            const canvas = document.getElementById('pipeCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 管道绘制参数
+            const centerX = 150;
+            const centerY = 150;
+            const radius = 100;
+            const canvasBottom = 250;
+
+            // 绘制圆管
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 计算水面位置
+            const waterLevelY = centerY + radius - (h/D) * 2 * radius;
+
+            // 绘制水面
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.fillStyle = "rgba(0, 120, 255, 0.3)";
+            ctx.fillRect(centerX - radius, waterLevelY, radius * 2, canvasBottom - waterLevelY);
+            ctx.restore();
+
+            // 绘制尺寸标注
+            drawDimension(ctx, 
+                centerX - radius, canvasBottom,
+                centerX + radius, canvasBottom,
+                `D = ${D.toFixed(2)} m`, 
+                "bottom"
+            );
+            
+            drawDimension(ctx,
+                centerX + radius + 20, waterLevelY,
+                centerX + radius + 20, canvasBottom,
+                `h = ${h.toFixed(2)} m`,
+                "right"
+            );
+        }
+
+        function drawDimension(ctx, x1, y1, x2, y2, text, position) {
+            ctx.strokeStyle = "#666";
+            ctx.lineWidth = 1;
+            
+            // 绘制尺寸线
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // 绘制箭头
+            const drawArrow = (x, y) => {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - 6, y - 3);
+                ctx.lineTo(x - 6, y + 3);
+                ctx.fill();
+            };
+
+            if (position === "bottom") {
+                // 水平尺寸标注
+                drawArrow(x1, y1);
+                drawArrow(x2, y2);
+                ctx.fillStyle = "#666";
+                ctx.textAlign = "center";
+                ctx.fillText(text, (x1 + x2)/2, y1 - 10);
+            } else {
+                // 垂直尺寸标注
+                drawArrow(x1, y1);
+                drawArrow(x2, y2);
+                ctx.fillStyle = "#666";
+                ctx.textAlign = "left";
+                ctx.fillText(text, x1 + 10, (y1 + y2)/2 + 5);
+            }
+        }
+
+        // 初始计算
+        calculate();
+    </script>
+</body>
+</html>
