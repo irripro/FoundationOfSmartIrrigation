@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>微灌管网水力计算</title>
+    <style>
+        .container {
+            margin: 20px;
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+
+        canvas {
+            border: 1px solid #000;
+            margin: 10px 0;
+        }
+    </style>
+    <!-- 引入 Chart.js UMD 版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="input-group">
+            <label>田块长L(m): <input type="number" id="L" value="100"></label>
+            <label>田块宽B(m): <input type="number" id="B" value="50"></label>
+            <label>毛管间距y(m): <input type="number" id="y" value="1"></label>
+            <label>出水器间距x(m): <input type="number" id="x" value="0.3"></label>
+            <label>滴头流量q(L/h): <input type="number" id="q" value="2"></label>
+        </div>
+        <div class="input-group">
+            <label>毛管直径D_mm: <input type="number" id="d_m" value="16"></label>
+            <label>支管直径D_mm: <input type="number" id="d_z" value="50"></label>
+            <label>C值: <input type="number" id="C" value="150"></label>
+            <label>k值: <input type="number" id="k" value="10.67" step="0.01"></label>
+        </div>
+        <button onclick="calculate()">计算</button>
+        <div id="results"></div>
+        <h3>管网布置图</h3>
+        <canvas id="networkCanvas" width="800" height="400"></canvas>
+        <h3>水头损失</h3>
+        <canvas id="headLossCanvas" width="800" height="400"></canvas>
+    </div>
+    <script>
+        let chartInstance=null;
+        function calculate() {
+            // 获取输入值
+            const Length = parseFloat(document.getElementById('L').value);
+            const B = parseFloat(document.getElementById('B').value);
+            const y = parseFloat(document.getElementById('y').value);
+            const x = parseFloat(document.getElementById('x').value);
+            const q = parseFloat(document.getElementById('q').value);
+            const D_m = parseFloat(document.getElementById('d_m').value); // 毛管直径 mm
+            const D_z = parseFloat(document.getElementById('d_z').value); // 支管直径 mm
+            const C = parseFloat(document.getElementById('C').value);
+            const k = parseFloat(document.getElementById('k').value);
+
+            // 计算毛管和支管参数
+            const numLaterals = B / y; // 50条
+            const lateralLength = B / 2;
+
+            const numEmittersPerLateral = Math.floor(lateralLength / x) * 2; // 每边83，共166
+            const totalEmitterFlow = numEmittersPerLateral * q; // L/h
+
+            const q_m3s = totalEmitterFlow * 0.001 / 3600;
+
+            let hf_lateral = 0;
+            const D_m_m = D_m / 1000; // 转换为米
+            for (let i = 0; i < numEmittersPerLateral; i++) {
+                const segmentFlow = (numEmittersPerLateral - i) * q * 0.001 / 3600; // m³/s
+                const segmentLength = x; // 每段长度0.3m
+                const hf_segment = k * segmentLength * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_m_m, 4.87));
+                hf_lateral += hf_segment;
+            }
+
+            let hf_main = 0;
+            const D_z_m = D_z / 1000;
+            const numBranches = numLaterals;
+            for (let i = 0; i < numBranches; i++) {
+                const segmentFlow = (numBranches - i) * q_m3s;
+                const segmentLength = y; // 支管分段长度1m
+                const hf_segment = k * segmentLength * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_z_m, 4.87));
+                hf_main += hf_segment;
+            }
+
+            
+            
+
+            const networkCanvas = document.getElementById('networkCanvas');
+            const ctx = networkCanvas.getContext('2d');
+            ctx.clearRect(0, 0, networkCanvas.width, networkCanvas.height);
+
+            const scaleX = (networkCanvas.width - 45) / Length;
+            const scaleY = (networkCanvas.height - 45) / B;
+
+            ctx.strokeStyle = 'red';
+            ctx.strokeRect(5, 5, Length * scaleX, B * scaleY);
+
+            const L = Length;
+            ctx.strokeStyle = 'blue';
+            ctx.beginPath();
+            ctx.moveTo(L * scaleX / 2, 0);
+            ctx.lineTo(L * scaleX / 2, B * scaleY);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'green';
+            for (let i = 1; i < numLaterals + 1; i++) {
+                const yPos = i * y * scaleY;
+                ctx.beginPath();
+                ctx.moveTo(L * scaleX / 2, yPos);
+                ctx.lineTo(5, yPos);
+                ctx.moveTo(L * scaleX / 2, yPos);
+                ctx.lineTo(Length * scaleX, yPos);
+                ctx.stroke();
+            }
+
+            // 使用 Chart.js 绘制水头损失曲线
+            const headLossCanvas = document.getElementById('headLossCanvas');
+            const hCtx = headLossCanvas.getContext('2d');
+
+            // 计算毛管水头线数据点
+            currentHf=hf_lateral
+            const lateralData = [];
+            for (let i = 0; i < numEmittersPerLateral; i++) {
+                const segmentFlow = q_m3s- i * q * 0.001 / 3600;
+                const hf_segment = k * x * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_m_m, 4.87));
+                currentHf -= hf_segment;
+                let xPos;
+                xPos = L / 2-(i + 1) * x;
+
+                lateralData.push({ x: xPos, y: currentHf });
+            }
+            currentHf=hf_lateral
+            const lateralData2 = [];
+            for (let i = 0; i < numEmittersPerLateral; i++) {
+                const segmentFlow = (numEmittersPerLateral - i) * q * 0.001 / 3600;
+                const hf_segment = k * x * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_m_m, 4.87));
+                currentHf -= hf_segment;
+                let xPos;
+                xPos =  L / 2 +(i + 1) * x;
+
+                lateralData2.push({ x: xPos, y: currentHf });
+            }            
+            // 计算支管水头线数据点
+            currentHf = hf_lateral;
+            const mainData = [];
+            for (let i = 0; i < numBranches; i++) {
+                const segmentFlow = (numBranches - i) * q_m3s;
+                const hf_segment = k * y * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_z_m, 4.87));
+                currentHf += hf_segment;
+            
+                let xPos =hf_lateral+ i * y;
+                mainData.push({ x: L / 2+currentHf, y: xPos });
+            }
+            const results = `毛管总水头损失：${hf_lateral.toFixed(2)} m , 支管总水头损失：${hf_main.toFixed(2)} m  ， 总水头损失：${currentHf.toFixed(2)} m`;
+            document.getElementById('results').innerHTML = results;
+            // 取毛管和支管水头损失的最大值
+            const maxHeadLoss = Math.max(B, mainData.x);
+            // 销毁之前的图表实例
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            // 创建新的图表实例
+            chartInstance = new  Chart(hCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: '左边水头损失',
+                            data: lateralData,
+                            borderColor: 'green',
+                            
+                            fill: true,
+                        },
+                        {
+                            label: '右边水头损失',
+                            data: lateralData2,
+                            borderColor: 'green',
+                            fill: true,
+                                                 },
+                        {
+                            label: '支管水头',
+                            data: mainData,
+                            borderColor: 'blue',
+                            fill: false,
+                            // 边框颜色设置为透明 borderColor: 'transparent', 
+                            pointRadius: 0, // 不显示数据点
+                            // fill: 'bottom', // 或者使用'bottom'/'top'根据需要origin 
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'linear', // 明确设置 x 轴类型为线性
+                            title: {
+                                display: false,
+                                text: '距离/水头 (m)'
+                            },
+                            beginAtZero: true,
+                            max: Length
+                        },
+                        y: {
+                            title: {
+                                display: false,
+                                text: '水头损失 (m)'
+                            },
+                            beginAtZero: true,
+                            max: maxHeadLoss
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -15,7 +15,7 @@
         //     "name": "Launch Edge",
         //     "request": "launch",
         //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//BayesianEstimationMethod.html",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Head_Loss_Calculator_Used.html",
         //     "webRoot": "${workspaceFolder}"
         // },
         
@@ -23,7 +23,7 @@
             "name": "Launch Edge",
             "request": "launch",
             "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//梯形渠道水力计算.html",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道T形布置的设计计算.html",
             "webRoot": "${workspaceFolder}"
         },
         
