@@ -18,14 +18,20 @@
         //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Head_Loss_Calculator_Used.html",
         //     "webRoot": "${workspaceFolder}"
         // },
-        
         {
             "name": "Launch Edge",
             "request": "launch",
             "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道T形布置的设计计算.html",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道3D-T形布置的设计计算.html",
             "webRoot": "${workspaceFolder}"
         },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区F布置设计计算.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
         
         
         // {
