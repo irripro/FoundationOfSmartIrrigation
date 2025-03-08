@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Scatter Plot with Latest Plotly.js</title>
+    <!-- Use the latest version of Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+    <div id="myDiv" style="width: 100%; height: 100vh;"></div>
+    <script>
+        // Define the data for the scatter plot
+        const trace1 = {
+            x: [1, 2, 3, 4],
+            y: [10, 11, 12, 13],
+            z: [100, 110, 120, 130],
+            mode: 'markers',
+            marker: {
+                size: 12,
+                line: {
+                    color: 'rgba(217, 217, 217, 0.14)',
+                    width: 0.5
+                },
+                opacity: 0.8
+            },
+            type: 'scatter3d'
+        };
+
+        // Create a new trace for the red line
+        const trace2 = {
+            x: trace1.x,
+            y: trace1.y,
+            z: trace1.z,
+            mode: 'lines',
+            line: {
+                color: 'red',
+                width: 3
+            },
+            type: 'scatter3d'
+        };
+
+        const data = [trace1, trace2];
+
+        // Define the layout for the plot
+        const layout = {
+            margin: {
+                l: 0,
+                r: 0,
+                b: 0,
+                t: 0
+            },
+            scene: {
+                xaxis: { title: 'X Axis' },
+                yaxis: { title: 'Y Axis' },
+                zaxis: { title: 'Z Axis' }
+            }
+        };
+
+        // Plot the chart
+        Plotly.newPlot('myDiv', data, layout);
+    </script>
+</body>
+
+</html>

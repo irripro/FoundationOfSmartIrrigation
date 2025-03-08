@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管道沿程水头损失计算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            color: #555;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>管道沿程水头损失计算器（因计算出错，没有完成代码！！！）</h1>
+    <form id="calculationForm">
+        <label for="length">管道长度 (m):</label>
+        <input type="number" id="length" value="100" required>
+
+        <label for="diameter">管道直径 (mm):</label>
+        <input type="number" id="diameter"  value="100" required>
+
+        <label for="flowRate">流量 (L/s):</label>
+        <input type="number" id="flowRate"  value="10" required>
+        <br>
+        <label for="material">管道材料:</label>
+        <select id="material" required>
+            <option value="pe">聚乙烯 (PE)</option>
+            <option value="pvc">聚氯乙烯 (PVC)</option>
+            <option value="pp">聚丙烯 (PP)</option>
+        </select>
+
+        
+    </form>
+    <br>
+    <div class="input-group">
+        <button onclick="calculate()">计算</button>
+    </div>
+    <br>
+
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+function calculate() {
+
+    // 获取用户输入的值
+    const length = parseFloat(document.getElementById('length').value);
+    const diameter = parseFloat(document.getElementById('diameter').value) / 1000; // mm to m
+    const flowRate = parseFloat(document.getElementById('flowRate').value) /1000;
+    const material = document.getElementById('material').value;
+
+    // 根据选择的材料设置相对粗糙度
+    let roughness;
+    switch (material) {
+        case 'pe':
+            roughness = 0.010; // 平均相对粗糙度 for PE
+            break;
+        case 'pvc':
+            roughness = 0.012; // 平均相对粗糙度 for PVC
+            break;
+        case 'pp':
+            roughness = 0.011; // 平均相对粗糙度 for PP
+            break;
+        default:
+            roughness = 0.010; // 默认相对粗糙度
+    }
+
+    // 计算雷诺数
+    const density = 1000; // kg/m^3 (water)
+    const viscosity = 1.002e-6; // Pa·s (water at 20°C)
+    const velocity = (4 * flowRate) / (Math.PI * Math.pow(diameter, 2));
+    const reynoldsNumber = (density * velocity * diameter) / viscosity;
+
+    // 计算摩擦系数
+    let frictionFactor=10.67;
+    if (reynoldsNumber < 2300) {
+        // 层流
+        frictionFactor = 64 / reynoldsNumber;
+    } else {
+        // 湍流
+        const a = -1.8 * Math.log10((roughness / (3.7 * diameter)) + (5.74 / Math.pow(reynoldsNumber, 0.9)));
+        frictionFactor = Math.pow(a, -2);
+    }
+
+    // 计算沿程水头损失
+    const headLoss = frictionFactor * (length / diameter) * (velocity * velocity) / (2 * 9.81);
+
+    // 显示结果
+    document.getElementById('result').innerText = `沿程水头损失: ${headLoss.toFixed(4)} 米`;
+};
+</script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>管道水力计算综合平台</title>
+  <!-- 引入 Chart.js UMD 版本 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+        
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 20px auto;
+                padding: 20px;
+                background: #f0f8ff;
+            }
+    
+            .calculator {
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+    
+            .input-group {
+                margin: 5px 5px;
+            }
+    
+            label {
+                display: inline-block;
+                width: 250px;
+                font-weight: bold;
+            }
+    
+            input, select {
+
+                padding: 8px;
+                width: 180px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+    
+            button {
+                background: #4CAF50;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+    
+            .result {
+                margin-top: 20px;
+                padding: 15px;
+                background: #e8f5e9;
+                border-radius: 5px;
+            }
+    
+            .warning {
+                color: #d32f2f;
+                font-weight: bold;
+            }
+        
+        /* 样式扩展 */
+        .unit-switch { margin: 10px 0; }
+        .unit-switch label { margin-right: 15px; }
+        .advanced-section { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px; }
+        .chart-container { width: 100%; height: 400px; margin: 20px 0; }
+        .cost-table { margin: 5px 0; }
+        .cost-table td { padding: 5px 10px; }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h2>管道水力计算及水泵选择计算器</h2>
+
+        <!-- 单位切换 -->
+        <div class="unit-switch">
+            <label>流量单位：
+                <input  type="radio" name="flowUnit" value="l/s" > L/s
+                <input type="radio" name="flowUnit" value="l/h" > L/h
+                <input type="radio" name="flowUnit" value="m3/h" checked> m³/h
+            </label>
+
+        </div>
+
+        <!-- 输入参数 -->
+        <div class="input-group">
+            <label>流量:</label>
+            <input type="number" id="flowRate" value="50" step="0.1" min="0.10">
+        </div>
+        
+        <!-- 扩展管材选项 -->
+        <div class="input-group">
+            <label>管材类型:</label>
+            <select id="material"></select>
+        </div>
+
+        <div class="input-group">
+            <label>管径 (mm):</label>
+            <input type="number" id="diameter" value="100" step="5" min="2">
+        </div>
+        
+        <div class="input-group">
+            <label>管长 (m):</label>
+            <input type="number" id="length" value="100" step="1" min="0.10">
+        </div>
+
+        <button onclick="calculate()">开始计算</button>
+
+        <!-- 结果展示 -->
+        <div class="result" id="result"></div>
+        
+        <!-- 成本估算 -->
+        <div class="advanced-section">
+            <h3>成本估算</h3>
+            <table class="cost-table" id="costEstimation"></table>
+        </div>
+
+        <!-- 水泵选型 -->
+        <div class="advanced-section">
+            <h3>水泵建议</h3>
+            <div id="pumpRecommendation"></div>
+        </div>
+
+        <!-- 可视化图表 -->
+        <div class="chart-container">
+            <canvas id="lossChart"></canvas>
+        </div>
+    </div>
+
+<script>
+// 常量配置
+const MATERIALS = [
+    {name:'PVC管', C:150, price:{50:8, 100:15, 150:22}},
+    {name:'PE100', C:145, price:{50:10, 100:18, 150:25}},
+    {name:'新铸铁管', C:140, price:{50:30, 100:55, 150:80}},
+    {name:'镀锌钢管', C:120, price:{50:25, 100:45, 150:65}},
+];
+
+const PUMPS = [
+    { model: 'ISG50-160', flow: 10, head: 32, power: 3 },
+    { model: 'ISG65-200', flow: 30, head: 50, power: 7.5 },
+    { model: 'ISG80-250', flow: 50, head: 80, power: 15 }
+];
+
+// 初始化管材选项
+function initMaterials() {
+    const select = document.getElementById('material');
+    MATERIALS.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m.C;
+        option.textContent = m.name;
+        select.appendChild(option);
+    });
+}
+
+// 单位转换器
+const UnitConverter = {
+    flow: {
+        'l/s': { factor: 0.001, symbol: 'L/s' },
+        'm3/s': { factor: 1, symbol: 'm³/s' },
+        'm3/h': { factor: 1/3600, symbol: 'm³/h' },
+        'l/h': { factor: 1/1000/3600, symbol: 'L/h' }
+    }
+};
+
+// 核心计算模块
+class HydraulicCalculator {
+    static calculate(Q_mps, D_mm, L_m, C) {
+        const D_m = D_mm / 1000;
+        const area = Math.PI * (D_m/2)**2;
+        const velocity = Q_mps / area;
+        
+        const hf = (10.67 * (Q_mps)**1.852 * L_m) / 
+                  (C**1.852 * D_m**4.871);
+        
+        return { velocity, hf };
+    }
+
+    static getMaterial(C) {
+        return MATERIALS.find(m => m.C === C);
+    }
+}
+
+// 可视化模块
+let chartInstance;
+function renderChart(lossData) {
+    const ctx = document.getElementById('lossChart').getContext('2d');
+    if(chartInstance) chartInstance.destroy();
+    
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length:11}, (_,i) => i*10),
+            datasets: [{
+                label: '沿程水头损失分布',
+                data: Array.from({length:11}, (_,i) => lossData * (i/10)),
+                borderColor: '#4CAF50',
+                tension: 0.1
+            }]
+        },
+        options: {
+            scales: {
+                y: { title: { display: true, text: '水头损失 (m)' } },
+                x: { title: { display: true, text: '管道长度 (m)' } }
+            }
+        }
+    });
+}
+
+function calculate() {
+    // 获取输入值
+    const unit = document.querySelector('input[name="flowUnit"]:checked').value;
+    let Q = parseFloat(document.getElementById('flowRate').value);
+    const D = parseFloat(document.getElementById('diameter').value);
+    const L = parseFloat(document.getElementById('length').value);
+    const C = parseInt(document.getElementById('material').value);
+
+    // 单位转换 m3/h
+    if(unit === 'l/h') Q = Q / 1000/3600;
+    if(unit === 'l/s') Q = Q / 1000;
+    if(unit === 'm3/h') Q = Q /3600;
+
+    // 执行计算
+    const { velocity, hf } = HydraulicCalculator.calculate(Q, D, L, C);
+    const material = HydraulicCalculator.getMaterial(C);
+
+    // 构建结果显示
+    let resultHTML = `
+        <h3>基本结果</h3>
+        <p>流速: ${velocity.toFixed(2)} m/s</p>
+        <p>沿程水头损失: ${hf.toFixed(2)} m</p>
+    `;
+
+    // 成本估算
+    const price = material.price[D] || material.price[Object.keys(material.price)[0]];
+    const costHTML = `
+        <h4>（仅供参考）</h4>
+        <tr><td>管材单价</td><td>¥${price}/m</td></tr>
+        <tr><td>总成本</td><td>¥${(price * L).toFixed(0)}</td></tr>
+    `;
+    document.getElementById('costEstimation').innerHTML = costHTML;
+
+    // 水泵选型
+    const pump = PUMPS.find(p => p.flow >= Q && p.head >= hf*1.1) || PUMPS[PUMPS.length-1];
+    const pumpHTML = `
+        <h4>（仅供参考）</h4>
+        <p>推荐型号：${pump.model}</p>
+        <p>流量范围：${pump.flow} m³/h</p>
+        <p>扬程范围：${pump.head} m</p>
+        <p>电机功率：${pump.power} kW</p>
+    `;
+    document.getElementById('pumpRecommendation').innerHTML = pumpHTML;
+
+    // 可视化
+    renderChart(hf);
+
+    // 显示结果
+    document.getElementById('result').innerHTML = resultHTML;
+}
+
+// 初始化
+window.onload = initMaterials;
+</script>
+</body>
+</html>

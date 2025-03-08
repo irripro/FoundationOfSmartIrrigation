@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管道沿程水头损失计算</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #result {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>管道沿程水头损失计算</h1>
+    <form id="calculationForm">
+        <label for="frictionFactor">沿程阻力系数 (f):</label>
+        <input type="number" id="frictionFactor" value="0.015" step="0.0001" required>
+        <label for="pipeLength">管道长度 (L, m):</label>
+        <input type="number" id="pipeLength" value="100" step="0.01" required>
+        <label for="pipeDiameter">管道直径 (D, m):</label>
+        <input type="number" id="pipeDiameter" value="0.1" step="0.001" required>
+        <label for="flowRate">流量 (Q, L/s):</label>
+        <input type="number" id="flowRate" value="10" step="0.01" required>
+        
+    </form>
+    <br>
+    <div class="input-group">
+        <button onclick="calculate()">计算</button>
+    </div>
+    <br>
+    <div id="result"></div>
+
+    <script>
+        
+        function calculate() {
+            // 获取用户输入的值
+            const frictionFactor = parseFloat(document.getElementById('frictionFactor').value);
+            const pipeLength = parseFloat(document.getElementById('pipeLength').value);
+            const pipeDiameter = parseFloat(document.getElementById('pipeDiameter').value);
+            const flowRate = parseFloat(document.getElementById('flowRate').value);
+
+            // 将流量从 L/s 转换为 m³/s
+            const flowRateM3s = flowRate / 1000;
+
+            // 计算管内平均流速
+            const flowVelocity = flowRateM3s / (Math.PI * (pipeDiameter / 2) ** 2);
+
+            // 重力加速度 (m/s²)
+            const gravity = 9.81;
+
+            // 计算沿程水头损失
+            const headLoss = frictionFactor * (pipeLength / pipeDiameter) * (flowVelocity ** 2) / (2 * gravity);
+
+            // 显示结果
+            const resultElement = document.getElementById('result');
+            resultElement.textContent = `管道沿程水头损失: ${headLoss.toFixed(4)} m`;
+        
+        };
+    </script>
+</body>
+
+</html>

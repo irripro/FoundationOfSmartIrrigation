@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>智能管道水力分析平台</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+         /* 优化后的样式 */
+         body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.5s;
+        }
+
+        button:hover {
+            background: #29b9aa;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr; /* 修改这里，使两列等宽 */
+            gap: 10px;
+        }
+        
+
+        .calculator {
+            top: 10%;
+            left: 5%;
+            display: grid; /* 设置为网格布局 */
+            grid-template-columns: 1fr ; /* 定义两列，每列占据可用空间的一半 */
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+
+        #mapContainer {
+            height: 600px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-toolbar {
+            position: relative;
+            top: 4%;
+            left: 2%;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .pipe-layer {
+            stroke-width: 5;
+            stroke-linecap: round;
+            animation: pipeFlow 2s infinite;
+        }
+
+
+        .input-group {
+            width: 55%;
+            grid-template-columns: 1fr; /* 可定义两列，每列占据可用空间的一半 */
+            margin: 5px 5px;
+
+        }
+        input,
+        select {
+            width: 30%;
+            
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        
+        <div class="calculator">
+            <h2>管道水力计算器</h2>
+
+            <div class="input-group">
+                <label>流量单位：</label>
+                <select id="flowUnit" onchange="convertFlowUnit()">
+                    <option value="L/s">升/秒 (L/s)</option>
+                    <option value="m3/h">立方米/小时 (m³/h)</option>
+                    <option value="L/h">升/小时 (L/h)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>流量值：</label>
+                <input type="number" id="flowValue" value="10" step="0.1" min="0">
+            </div>
+
+            <div class="input-group"></div>
+                <label>末端工作水头 (m)：</label>
+                <input type="number" id="workheadValue" value="30" step="0.1" min="0">
+            </div>
+
+            <div class="input-group">
+                <label>管材类型：</label>
+                <select id="material"></select>
+            </div>
+
+            <div class="input-group">
+                <label>管径 (mm)：</label>
+                <input type="number" id="diameter" value="100" min="0">
+            </div>
+
+            <div class="input-group">
+                <label>管线长度 (m)：</label>
+                <input type="number" id="length" value="100" min="0"><br>
+               
+                <div class="map-toolbar">
+                    <button onclick="syncFromMap()" style="margin-top:5px;">从地图获取长度</button>
+                    <button onclick="toggleDrawing()">📏 绘制管线</button>
+                    <button onclick="clearMap()">🗑️ 清除</button>
+                </div>
+            </div><br>
+
+            <button onclick="calculate()" style="width:100%;margin-top:15px;">开始计算</button>
+
+            <!-- 结果展示 -->
+            <div class="result-section" id="results">
+                <h3>计算结果</h3>
+                <div id="basicResults"></div>
+                <div id="costEstimation"></div>
+                <div id="pumpRecommendation"></div>
+            </div>
+        </div>
+
+    </div>
+    <div>
+
+        <div id="mapContainer"></div>
+        <div class="chart-container">
+            <canvas id="lossChart"></canvas>
+        </div>
+    </div>
+    <script>
+        // 增强版系统配置
+        const MAP_CONFIG = {
+            baseLayers: {
+                "街道地图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+                "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+            },
+            initCenter: [25.0, 110.0],
+            initZoom: 12
+        };
+
+        const MATERIALS = [
+            { name: 'PVC管', C: 150, color: '#2ecc71', price: { 50: 8, 100: 15, 150: 22 } },
+            { name: 'PE管', C: 145, color: '#3498db', price: { 50: 10, 100: 18, 150: 25 } },
+            { name: '镀锌钢管', C: 120, color: '#e67e22', price: { 50: 25, 100: 45, 150: 65 } },
+            { name: '球墨铸铁管', C: 140, color: '#9b59b6', price: { 50: 35, 100: 60, 150: 85 } }
+        ];
+
+        const PUMPS = [
+            { model: 'ISG50-160', flow: 10, head: 32, power: 3 },
+            { model: 'ISG65-200', flow: 30, head: 50, power: 7.5 },
+            { model: 'ISG80-250', flow: 50, head: 80, power: 15 }
+        ];
+
+        let map, chartInstance;
+        let isDrawing = false;
+        let currentPipeline = {
+            coordinates: [],
+            polyline: null,
+            segments: []
+        };
+        // 核心计算函数
+        function calculate() {
+            // 获取输入参数 workheadValue
+            const flowValue = parseFloat(document.getElementById('flowValue').value);
+            const flowUnit = document.getElementById('flowUnit').value;
+            const diameter = parseFloat(document.getElementById('diameter').value);
+            const length = parseFloat(document.getElementById('length').value);
+            const workhead = parseFloat(document.getElementById('workheadValue').value);
+            const C = parseInt(document.getElementById('material').value);
+
+            // 单位转换const Q = flowUnit === 'm3/h' ? flowValue / 3.6 : flowValue;
+            
+            let Q = flowValue;
+            if (flowUnit === 'm3/h' ){
+                Q=flowValue / 3.6 ;
+            };
+            if (flowUnit === 'L/h' ){
+                Q=flowValue / 3600;
+            };
+            Q=Q*0.001;
+
+            // 计算水头损失
+            const D = diameter / 1000;
+            const area = Math.PI * (D / 2) ** 2;
+            const velocity = Q / area;
+            const hf = (10.67 * (Q ) ** 1.852 * length) / (C ** 1.852 * D ** 4.871);
+            const Hp = hf + workhead;
+            // 更新显示结果
+            showResults(velocity, hf,Hp);
+            updateChart(hf);
+            updatePipelineStyle(hf / length);
+            
+            recommendPump(Q , Hp);
+        }
+
+        // 结果展示函数
+        function showResults(v, hf,Hp) {
+            // 添加CSS样式以显示红色警告
+            const style = document.createElement('style');
+            style.type = 'text/css';
+            style.innerHTML = '.warning { color: red; }';
+            document.head.appendChild(style);
+            const results = `
+                <p>流速：${v.toFixed(2)} m/s</p>
+                <p>沿程水头损失：${hf.toFixed(2)} m</p>
+                <p>总水头：${Hp.toFixed(2)} m</p>
+
+                ${v > 1.5 ? '<p class="warning" > 警告：流速超过安全阈值！</p>' : ''}
+            `;
+            document.getElementById('basicResults').innerHTML = results;
+        }
+
+        function updateChart(hf) {
+            const ctx = document.getElementById('lossChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: 11 }, (_, i) => i * 10),
+                    datasets: [{
+                        label: '沿程水头损失分布',
+                        data: Array.from({ length: 11 }, (_, i) => hf * (i / 10)),
+                        borderColor: '#3498db',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+
+        function initMaterials() {
+            const materialSelect = document.getElementById('material');
+            MATERIALS.forEach(m => {
+                const option = document.createElement('option');
+                option.value = m.C;
+                option.textContent = m.name;
+                materialSelect.appendChild(option);
+            });
+        }
+
+        function initSystem() {
+            const requiredElements = ['length', 'material', 'flowValue'];
+            requiredElements.forEach(id => {
+                if (!document.getElementById(id)) {
+                    throw new Error(`无法找到必需的元素 #${id}`);
+                }
+            });
+
+            initMaterials();
+            map = L.map('mapContainer', {
+                center: MAP_CONFIG.initCenter,
+                zoom: MAP_CONFIG.initZoom
+            });
+
+            L.control.layers(MAP_CONFIG.baseLayers).addTo(map);
+            MAP_CONFIG.baseLayers["卫星影像"].addTo(map);
+
+            map.on('click', handleMapClick);
+        }
+
+        function handleMapClick(e) {
+            if (!isDrawing) return;
+            currentPipeline.coordinates.push(e.latlng);
+            updatePipelineDisplay();
+            updateLengthInput();
+        }
+
+        function updatePipelineDisplay() {
+            if (currentPipeline.polyline) {
+                map.removeLayer(currentPipeline.polyline);
+            }
+            currentPipeline.polyline = L.polyline(currentPipeline.coordinates, {
+                className: 'pipe-layer'
+            }).addTo(map);
+
+            // 补充：更新 segments 信息，这里简单假设每一段的管径和材质相同
+            const diameter = parseFloat(document.getElementById('diameter').value);
+            const C = parseInt(document.getElementById('material').value);
+            for (let i = 1; i < currentPipeline.coordinates.length; i++) {
+                const segmentLength = map.distance(currentPipeline.coordinates[i - 1], currentPipeline.coordinates[i]);
+                currentPipeline.segments.push({
+                    length: segmentLength,
+                    diameter: diameter,
+                    C: C
+                });
+            }
+        }
+
+        function updateLengthInput() {
+            const length = calculatePipelineLength();
+            const lengthInput = document.getElementById('length');
+            if (lengthInput) {
+                lengthInput.value = length;
+            }
+        }
+
+        function calculatePipelineLength() {
+            if (currentPipeline.coordinates.length < 2) return 0;
+            return currentPipeline.coordinates.reduce((total, point, index, arr) => {
+                return index > 0 ?
+                    total + map.distance(arr[index - 1], point) :
+                    total;
+            }, 0).toFixed(1);
+        }
+
+        function toggleDrawing() {
+            isDrawing = !isDrawing;
+            map.getContainer().style.cursor = isDrawing ? 'crosshair' : '';
+            if (!isDrawing) performCalculation();
+        }
+
+        function performCalculation() {
+            const params = getInputParams();
+            const results = HydraulicCalculator.calculate(params);
+            updateResultsDisplay(results);
+            updateChart(results.hf);
+            updatePipelineStyle(results.hf / params.length);
+            showCostEstimation(params);
+            // recommendPump(params,hf);
+        }
+
+        function getInputParams() {
+            const flowValue = parseFloat(document.getElementById('flowValue').value);
+            const flowUnit = document.getElementById('flowUnit').value;
+            const diameter = parseFloat(document.getElementById('diameter').value);
+            const length = parseFloat(document.getElementById('length').value);
+            const C = parseInt(document.getElementById('material').value);
+            return { flowValue, flowUnit, diameter, length, C };
+        }
+
+        function updateResultsDisplay(results) {
+            const v = results.velocity;
+            const hf = results.hf;
+            const resultsHTML = `
+                <p>流速：${v.toFixed(2)} m/s</p>
+                <p>沿程水头损失：${hf.toFixed(2)} m</p>
+                ${v > 1.5 ? '<p class="warning">警告：流速超过安全阈值！</p>' : ''}
+            `;
+            document.getElementById('basicResults').innerHTML = resultsHTML;
+        }
+
+        function updateChart(hf) {
+            const ctx = document.getElementById('lossChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: 11 }, (_, i) => i * 10),
+                    datasets: [{
+                        label: '沿程水头损失分布',
+                        data: Array.from({ length: 11 }, (_, i) => hf * (i / 10)),
+                        borderColor: '#3498db',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+
+        function updatePipelineStyle(lossPerMeter) {
+            if (currentPipeline.polyline) {
+                currentPipeline.polyline.setStyle({
+                    color: getColor(lossPerMeter),
+                    weight: Math.min(lossPerMeter * 50 + 5, 20)
+                });
+            }
+        }
+
+        function getColor(loss) {
+            return loss > 0.1 ? '#e74c3c' :
+                loss > 0.05 ? '#f1c40f' : '#2ecc71';
+        }
+
+        function calculatePumpPower(Hp, Q) {
+            const densityOfWater = 1000; // kg/m³
+            const gravity = 9.81; // m/s²
+            
+            const power = densityOfWater * gravity * Hp * Q / 1000; // Kw
+            return power;
+          }
+          
+          // 示例使用
+          /* const waterHead = 50; // 水头为50米
+          const flowRate = 0.02; // 流量为0.02立方米/秒
+          const powerKw = calculatePumpPower(waterHead, flowRate);
+          
+          console.log(`The power of the pump is ${powerKw} Kw.`);  */
+          
+
+        function recommendPump(Q,Hp) {
+
+            // console.log(`The power of the pump is ${Q} m3/s.`);
+            const eff=0.65;
+            let Kw = calculatePumpPower(Q,Hp)/eff;
+            Q=Q*3600;
+            const pumpInfo = `
+                <h4>水泵推荐</h4>
+                
+                <p>流量：${Q.toFixed(2)} m³/h</p>
+                <p>扬程：${Hp.toFixed(2)} m</p>
+                <p>效率：${eff*100}</p>
+                <p>功率：${Kw.toFixed(2)} kW</p>
+            `;
+            document.getElementById('pumpRecommendation').innerHTML = pumpInfo;
+        }
+
+        function clearMap() {
+            try {
+                if (currentPipeline.polyline) {
+                    map.removeLayer(currentPipeline.polyline);
+                }
+                currentPipeline.coordinates = [];
+                currentPipeline.segments = [];
+                document.getElementById('length').value = '';
+                document.getElementById('basicResults').innerHTML = '';
+                document.getElementById('costEstimation').innerHTML = '';
+                document.getElementById('pumpRecommendation').innerHTML = '';
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                console.log('地图已重置');
+            } catch (error) {
+                console.error('清除地图失败:', error);
+                alert('清除操作出现异常，请刷新页面');
+            }
+        }
+
+        function syncFromMap() {
+            try {
+                const length = calculatePipelineLength();
+                document.getElementById('length').value = length;
+            } catch (error) {
+                console.error("同步地图长度失败:", error);
+                alert("无法获取长度，请先绘制管线！");
+            }
+        }
+
+        function convertFlowUnit() {
+            const currentValue = parseFloat(document.getElementById('flowValue').value);
+            const unit = document.getElementById('flowUnit').value;
+            if (unit === 'm3/h') {
+                document.getElementById('flowValue').value = currentValue ? currentValue * 3.600 : 'L/s';
+            }  
+            if (unit === 'L/s') {
+                document.getElementById('flowValue').value = currentValue ? currentValue  : 'L/s';
+            }
+            if (unit === 'L/h') {
+                document.getElementById('flowValue').value = currentValue ? currentValue *3600 : 'L/s';
+            } 
+        }
+
+        class HydraulicCalculator {
+            static calculate(params) {
+                const D = params.diameter / 1000;
+                if (!params || !params.flowValue || !params.diameter || !params.length || !params.C) {
+                    throw new Error('参数不完整');
+                 } else{
+                        Q = params.flowValue; /*Q=L/s*/
+                        
+                        if (params.flowUnit === 'm3/h' ){
+                            Q=params.flowValue / 3.6 ;
+                        };
+                        if (params.flowUnit === 'L/h' ){
+                            Q=params.flowValue / 3600 ;
+                        };
+                        
+
+                    };
+               
+                           
+            
+                return {
+                    velocity: Q * 0.001 / (Math.PI * (D / 2) ** 2),
+                    hf: (10.67 * (Q / 1000) ** 1.852 * params.length) /
+                        (params.C ** 1.852 * D ** 4.871)
+                };
+            };
+        }
+
+        window.onload = initSystem;
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>管道水力计算与地理可视化系统</title>
+    <!-- Leaflet地图库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 新增地图容器样式 */
+        #mapContainer {
+            height: 500px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .map-toolbar {
+            margin: 10px 0;
+        }
+        .pipe-segment {
+            stroke-width: 5;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <!-- 原有计算器内容保持不变 -->
+    </div>
+
+    <!-- 新增地图模块 -->
+    <div class="map-section">
+        <div class="map-toolbar">
+            <button onclick="startDrawing()">开始绘制管线</button>
+            <button onclick="clearMap()">清除地图</button>
+            <span id="lengthDisplay">当前管线长度：0米</span>
+        </div>
+        <div id="mapContainer"></div>
+    </div>
+
+<script>
+// 地图模块全局变量
+let map;
+let drawnPipeline = {
+    coordinates: [],
+    polyline: null
+};
+
+// 初始化地图
+function initMap() {
+    map = L.map('mapContainer').setView([42.8, 87.6], 10); // 新疆乌鲁木齐坐标
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    map.on('click', addPipelinePoint);
+}
+
+// 地图点击事件处理
+function addPipelinePoint(e) {
+    if(!isDrawing) return;
+    
+    drawnPipeline.coordinates.push(e.latlng);
+    updatePipelineDisplay();
+    
+    if(drawnPipeline.coordinates.length > 1) {
+        drawPipelineOnMap();
+    }
+}
+
+// 在地图上绘制管线
+function drawPipelineOnMap() {
+    if(drawnPipeline.polyline) {
+        map.removeLayer(drawnPipeline.polyline);
+    }
+    
+    drawnPipeline.polyline = L.polyline(drawnPipeline.coordinates, {
+        color: '#3388ff',
+        weight: 5
+    }).addTo(map);
+    
+    // 添加交互事件
+    drawnPipeline.polyline.on('click', showPipelineInfo);
+}
+
+// 更新管线长度显示
+function updatePipelineDisplay() {
+    const length = calculatePipelineLength();
+    document.getElementById('length').value = length.toFixed(0);
+    document.getElementById('lengthDisplay').textContent = `当前管线长度：${length.toFixed(0)}米`;
+}
+
+// 计算管线地理长度（简化版）
+function calculatePipelineLength() {
+    let total = 0;
+    for(let i=1; i<drawnPipeline.coordinates.length; i++) {
+        total += map.distance(
+            drawnPipeline.coordinates[i-1],
+            drawnPipeline.coordinates[i]
+        );
+    }
+    return total;
+}
+
+// 显示管线信息弹窗
+function showPipelineInfo(e) {
+    const segmentIndex = findNearestSegmentIndex(e.latlng);
+    const segmentData = getSegmentData(segmentIndex);
+    
+    L.popup()
+        .setLatLng(e.latlng)
+        .setContent(`
+            <b>管段 ${segmentIndex+1}</b><br>
+            长度: ${segmentData.length.toFixed(0)}m<br>
+            水头损失: ${segmentData.hf.toFixed(2)}m
+        `)
+        .openOn(map);
+}
+
+// 启动管线绘制模式
+let isDrawing = false;
+function startDrawing() {
+    isDrawing = true;
+    drawnPipeline.coordinates = [];
+    if(drawnPipeline.polyline) map.removeLayer(drawnPipeline.polyline);
+    alert("请在地图上点击绘制管线路径，双击结束绘制");
+}
+
+// 清除地图绘制
+function clearMap() {
+    drawnPipeline.coordinates = [];
+    if(drawnPipeline.polyline) map.removeLayer(drawnPipeline.polyline);
+    updatePipelineDisplay();
+}
+
+// 在计算函数中集成地图数据
+function calculate() {
+    // 原有计算逻辑...
+    
+    // 更新地图显示样式
+    if(drawnPipeline.polyline) {
+        const gradient = hf / parseFloat(document.getElementById('length').value);
+        drawnPipeline.polyline.setStyle({
+            color: getColorByLoss(gradient)
+        });
+    }
+}
+
+// 根据水头损失获取颜色
+function getColorByLoss(lossPerMeter) {
+    return lossPerMeter > 0.1 ? '#ff0000' : 
+           lossPerMeter > 0.05 ? '#ffa500' : '#00ff00';
+}
+
+// 初始化时加载地图
+window.onload = function() {
+    initMaterials();
+    initMap();
+};
+</script>
+</body>
+</html>

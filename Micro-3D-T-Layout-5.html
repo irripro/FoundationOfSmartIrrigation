@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>微灌管网水力计算</title>
+    <style>
+        .input-group {
+            margin: 5px 5px;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-group label {
+            width: 190px;
+            margin-right: 2px;
+        }
+
+        #network3D {
+            position: relative;
+            top: 15%;
+            left: 12%;
+            width: 810px;
+            height: 610px;
+            border: 2px solid #635f5f;
+            margin: 10px 0;
+        }
+
+        #results {
+            position: relative;
+            top: 15%;
+            left: 10%;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        /* 设置容器样式 */
+        .container {
+            border: 1px solid #747272;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 水平居中 */
+        }
+
+        /* 设置 h3 标签样式 */
+        .container h3 {
+            margin: 0;
+            padding: 10px 0;
+        }
+    </style>
+    <!-- 引入 Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+    <div class="controls">
+        <div class="input-group">
+            <label>田块长边 L (m):</label>
+            <input type="number" id="L" value="100" step="1">
+        </div>
+        <div class="input-group">
+            <label>田块短边 B (m):</label>
+            <input type="number" id="B" value="50" step="1">
+        </div>
+        <div class="input-group">
+            <label>毛管间距 y (m):</label>
+            <input type="number" id="y" value="4" step="1">
+        </div>
+        <div class="input-group">
+            <label>出水器间距 x (m):</label>
+            <input type="number" id="x" value="0.4" step="0.1">
+        </div>
+        <div class="input-group">
+            <label>灌水器流量 q (L/h):</label>
+            <input type="number" id="q" value="2" step="0.1">
+        </div>
+        <div class="input-group">
+            <label>灌水器工作压力 He (m):</label>
+            <input type="number" id="H_e" value="10" step="1">
+        </div>
+        <div class="input-group">
+            <label>支管尾端水头 Hw (m):</label>
+            <input type="number" id="H_w" value="12" step="1">
+        </div>
+        <div class="input-group">
+            <label>毛管直径 D（mm）:</label>
+            <input type="number" id="d_m" value="16" step="1">
+        </div>
+        <div class="input-group">
+            <label>支管距离左边线 L1（m）:</label>
+            <input type="number" id="L1" value="50" step="1">
+        </div>
+        <div class="input-group">
+            <label>支管-0 直径 D（mm）:</label>
+            <input type="number" id="d_z" value="50" step="1">
+        </div>
+        <div class="input-group">
+            <label>支管-1 直径 D（mm）:</label>
+            <input type="number" id="d_z_1" value="30" step="1">
+        </div>
+        <div class="input-group">
+            <label>支管-2 直径 D（mm）:</label>
+            <input type="number" id="d_z_2" value="25" step="1">
+        </div>
+        <div class="input-group">
+            <label>C 值:</label>
+            <input type="number" id="C" value="150" step="10">
+        </div>
+        <div class="input-group">
+            <label>k 值:</label>
+            <input type="number" id="k" value="10.67" step="0.01">
+        </div>
+        <br>
+        <div class="input-group">
+            <button onclick="calculate()">计算</button>
+        </div>
+        <br>
+    </div>
+    <br>
+
+    <div class="container">
+        <h3>  小区管网水头线图（3D）</h3>
+        <div id="results"></div>
+        <div id="network3D"></div>
+    </div>
+
+    <script>
+        function calculate() {
+            // 获取输入值
+            const Length = parseFloat(document.getElementById('L').value);
+            const L1 = parseFloat(document.getElementById('L1').value);
+            const B = parseFloat(document.getElementById('B').value);
+            const y = parseFloat(document.getElementById('y').value);
+            const x = parseFloat(document.getElementById('x').value);
+            const q = parseFloat(document.getElementById('q').value);
+            const H_w = parseFloat(document.getElementById('H_w').value);
+            const H_e = parseFloat(document.getElementById('H_e').value);
+
+            const D_m = parseFloat(document.getElementById('d_m').value); // 毛管直径 mm
+            const D_z = parseFloat(document.getElementById('d_z').value); // 支管直径 mm
+            const C = parseFloat(document.getElementById('C').value);
+            const k = parseFloat(document.getElementById('k').value);
+            const D_z_1 = parseFloat(document.getElementById('d_z_1').value);
+            const D_z_2 = parseFloat(document.getElementById('d_z_2').value);
+
+
+            // 检查 L1 的输入值
+            if (L1 < 0 || L1 > Length) {
+                alert('支管距离右边线 L1 的值必须在 0 到田块长边 L 的范围内！');
+                return;
+            }
+
+            const L2 = Length - L1;
+            const Hw = H_w * 1.1;
+
+            // 计算毛管和支管参数
+            const numLaterals = Math.floor(B / y) + 1;
+            const lateralLength1 = L1;
+            const lateralLength2 = L2;
+
+            const numEmittersPerLateral1 = Math.floor(lateralLength1 / x);
+            const numEmittersPerLateral2 = Math.floor(lateralLength2 / x);
+            const totalEmitterFlow1 = numEmittersPerLateral1 * q;
+            const totalEmitterFlow2 = numEmittersPerLateral2 * q;
+            const q_m3s_1 = totalEmitterFlow1 * 0.001 / 3600;
+            const q_m3s_2 = totalEmitterFlow2 * 0.001 / 3600;
+            const q_m3h = (q_m3s_1 + q_m3s_2) * 3600;
+
+            let hmin = 1000;
+            let hmax = 0;
+
+            let hf_main = Hw;
+            let hf = Hw;
+            const D_z_m = [];
+            const d_z_m_c = [];
+            const LateralL = [];
+            
+
+            D_z_m[0] = D_z / 1000;
+            D_z_m[1] = D_z_1 / 1000;
+            D_z_m[2] = D_z_2 / 1000;
+            d_z_m_c[0] = '#fa0102';
+            d_z_m_c[1] = '#fba102';
+            d_z_m_c[2] = '#fa01f2';
+            
+            
+            const D_m_m = D_m / 1000;
+            const numBranches = numLaterals;
+
+            // 存储线条数据
+            const traces = [];
+
+            // 创建田块平面
+            const fieldX = [-Length, Length, Length, -Length, -Length];
+            const fieldY = [0, 0, B, B, 0];
+            const fieldZ = [0, 0, 0, 0, 0];
+            const fieldTrace = {
+                x: fieldX,
+                y: fieldY,
+                z: fieldZ,
+                mode: 'lines',
+                type: 'scatter3d',
+                line: {
+                    color: '#f0c052',
+                    width: 4
+                },
+                name: '田块平面'
+            };
+            traces.push(fieldTrace);
+            j=2;
+            for (let j = 0; j < 3; j++) {
+                LateralL[j] = 0; 
+            }
+            Hw_l=H_e*1.1;
+            branchTrace = {};
+            mainPipeTrace = {};
+            for (let i = 0; i < numBranches; i++) {
+                const segmentFlow = (numBranches - i) * (q_m3s_1 + q_m3s_2);
+                const segmentLength = y;
+                const hf_segment = k * segmentLength * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_z_m[j], 4.87));
+                hf_main += hf_segment;
+                LateralL[j] += segmentLength;
+                
+
+                    // 创建支管水头损失线
+                branchTrace = {
+                    x: [0, 0],
+                    y: [y * i, y * (i + 1)],
+                    z: [hf, hf_main],
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: {
+                        color: d_z_m_c[j],
+                        width: D_z_m[j] * 66
+                    },
+                    name: `支管水头 ${i + 1}`
+                };
+                
+                            // 创建主干管
+                mainPipeTrace = {
+                    x: [0, 0],
+                    y: [y * i, y * (i + 1)],
+                    z: [0, 0],
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: {
+                        color: d_z_m_c[j],
+                        width: D_z_m[j] * 100
+                    },
+                    name: '支管'
+                };
+                traces.push(mainPipeTrace);
+
+                 
+                if (hf_main > Hw_l) {
+
+                    if(j>0){
+                        j=j-1;                
+                        Hw_l=Hw_l*1.1 ;
+                    }
+                    
+                    
+                }
+                traces.push(branchTrace);
+                hmax = Math.max(hf_main, hmax);
+
+
+                let hf_lateral = hf;
+                let hl = hf;
+                let xPos = 0;
+                let yPos = i * y;
+                const lateralX1 = [];
+                const lateralY1 = [];
+                const lateralZ1 = [];
+                for (let j = 0; j < numEmittersPerLateral1; j++) {
+                    const segmentFlow = (numEmittersPerLateral1 - j) * q * 0.001 / 3600;
+                    const segmentLength = x;
+                    const hf_segment = k * segmentLength * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_m_m, 4.87));
+                    hf_lateral -= hf_segment;
+                    xPos += x;
+                    lateralX1.push(xPos);
+                    lateralY1.push(yPos);
+                    lateralZ1.push(hl);
+                    lateralX1.push(xPos + x);
+                    lateralY1.push(yPos);
+                    lateralZ1.push(hf_lateral);
+                    hl = hf_lateral;
+                    hmin = Math.min(hf_lateral, hmin);
+                }
+                hf_lateral = Math.floor(hf_lateral * 10) / 10;
+                lateralX1.push(xPos + x);
+                lateralY1.push(yPos);
+                lateralZ1.push(0);
+                lateralX1.push(xPos + x);
+                lateralY1.push(yPos);
+                lateralZ1.push(hf_lateral);
+                const lateralTrace1 = {
+                    x: lateralX1,
+                    y: lateralY1,
+                    z: lateralZ1,
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: {
+                        color: 'purple',
+                        width: D_m_m * 50
+                    },
+                    name: `毛管 ${i + 1} 左侧水头线`
+                };
+                traces.push(lateralTrace1);
+
+                hl = hf;
+                xPos = 0;
+                hf_lateral = hl;
+                const lateralX2 = [];
+                const lateralY2 = [];
+                const lateralZ2 = [];
+                for (let j = 0; j < numEmittersPerLateral2; j++) {
+                    const segmentFlow = (numEmittersPerLateral2 - j) * q * 0.001 / 3600;
+                    const segmentLength = x;
+                    const hf_segment = k * segmentLength * Math.pow(segmentFlow, 1.85) / (Math.pow(C, 1.85) * Math.pow(D_m_m, 4.87));
+                    hf_lateral -= hf_segment;
+                    xPos -= x;
+                    lateralX2.push(xPos);
+                    lateralY2.push(yPos);
+                    lateralZ2.push(hl);
+                    lateralX2.push(xPos - x);
+                    lateralY2.push(yPos);
+                    lateralZ2.push(hf_lateral);
+                    hl = hf_lateral;
+                    hmin = Math.min(hf_lateral, hmin);
+                }
+                hf_lateral = Math.floor(hf_lateral * 10) / 10;
+                lateralX2.push(xPos - x);
+                lateralY2.push(yPos);
+                lateralZ2.push(0);
+                lateralX2.push(xPos - x);
+                lateralY2.push(yPos);
+                lateralZ2.push(hf_lateral);
+                const lateralTrace2 = {
+                    x: lateralX2,
+                    y: lateralY2,
+                    z: lateralZ2,
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: {
+                        color: '#fd8072', 
+                        width: D_m_m * 50
+                    },
+                    name: `毛管 ${i + 1} 右侧水头线`
+                };
+                traces.push(lateralTrace2);
+
+                hf = hf_main;
+
+            }
+
+
+
+            // 创建毛管水平部分
+            for (let i = 0; i < numLaterals; i++) {
+                const yPos = i * y;
+                const lateralHorizontalTrace = {
+                    x: [-L2, L1],
+                    y: [yPos, yPos],
+                    z: [0, 0],
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: {
+                        color: 'green',
+                        width: D_m_m * 100
+                    },
+                    name: `毛管 ${i + 1} `
+                };
+                traces.push(lateralHorizontalTrace);
+            }
+            lengStr='';
+            for (let j = 0; j < 3; j++) {
+                D_z_m[j]= D_z_m[j]*1000;
+                lengStr += `<br> 第 ${j} 段支管管径 ${ D_z_m[j].toFixed(0)} ,长度：${LateralL[j].toFixed(2)} m `;
+            }
+
+            const results = `灌水器工作水头：${H_e.toFixed(2)} m , 最小水头：${hmin.toFixed(2)} m , <br> 支管总水头：${hmax.toFixed(2)} m  ， <br> 总流量：${q_m3h.toFixed(2)} m^3/h。`+lengStr;
+
+            if (hmin < H_e * .9) {
+                const message = `灌水器工作压力 ${hmin.toFixed(2)} 太低，需要调整管径  ！！！`;
+                alert(message);
+            }
+            if (hmin > H_e * 1.2) {
+                const message = `灌水器工作压力 ${hmin.toFixed(2)} 太高，可调整支管尾端水头 Hw ！`;
+                alert(message);
+            }
+            document.getElementById('results').innerHTML = results;
+
+            const layout = {
+                scene: {
+                    xaxis: { title: 'X 轴' },
+                    yaxis: { title: 'Y 轴' },
+                    zaxis: { title: 'Z 轴' }
+                },
+                width: 810,
+                height: 610
+            };
+
+            Plotly.newPlot('network3D', traces, layout);
+        }
+    </script>
+</body>
+
+</html>

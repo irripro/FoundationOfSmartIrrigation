@@ -4,27 +4,42 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // {
-        //     "name": "Launch Edge",
-        //     "request": "launch",
-        //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///performMLE.html",
-        //     "webRoot": "${workspaceFolder}"
-        // },
-        // {
-        //     "name": "Launch Edge",
-        //     "request": "launch",
-        //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Head_Loss_Calculator_Used.html",
-        //     "webRoot": "${workspaceFolder}"
-        // },
         {
             "name": "Launch Edge",
             "request": "launch",
             "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道3D-T形布置的设计计算.html",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation///DS_PipeLoss_Map_Pump-3.html",
             "webRoot": "${workspaceFolder}"
         },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//通义自动生成的管道水头损失在线计算器.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//DS自动生成的管道水头损失在线计算器.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道3D-T形布置的设计计算-5.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//微灌小区管道T形布置的设计计算.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
+        
         // {
         //     "name": "Launch Edge",
         //     "request": "launch",
