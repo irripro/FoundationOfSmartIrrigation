@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>滴灌湿润比计算器</title>
+    <style>
+        .container { max-width: 500px; margin: 20px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 10px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>滴灌湿润比计算器</h2>
+        
+        <div class="form-group">
+            <label>土壤类型</label>
+            <select id="soilType">
+                <option value="clay">粘土</option>
+                <option value="loam">壤土</option>
+                <option value="sand">沙土</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>滴头流量 (L/h)</label>
+            <select id="dripRate">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="6">6</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>滴头间距 (m)</label>
+            <input type="number" id="s" value="0.5" step="0.1" placeholder="例如: 0.5">
+        </div>
+
+        <div class="form-group">
+            <label>毛管间距 (m)</label>
+            <input type="number" id="l" value="1" step="0.1" placeholder="例如: 1">
+        </div>
+
+        <button onclick="calculateWettingRatio()">计算湿润比</button>
+        
+        <div id="result"></div>
+    </div>
+    <!-- 粘土（Clay）的入渗率通常较低，大约在 0.01−0.1 mm/min 
+    壤土（Loam）的入渗率介于粘土和砂土之间，大约在 0.1−1 mm/min
+    砂土（Sand）的入渗率较高，可能达到 10−100 mm/min -->
+
+    <script>
+
+        //const soils = {
+         //   "clay": { Ks: 0.01*0.001*60 }, // 约0.01 mm/min -> m/h
+         //   "loam": { Ks: 0.1*0.001*60  }, // 约0.1 mm/min -> m/h 
+         //   "sand": { Ks: 10*0.001*60  }  // 约10 mm/min -> m/h
+        //};
+        // 土壤参数库
+        const soils = {
+            //"clay": { Ks: 0.0005 },
+            //"loam": { Ks: 0.005 },
+            //"sand": { Ks: 0.05 }
+            "clay": { Ks: 0.0010 }, // 约0.01 mm/min -> m/h
+            "loam": { Ks: 0.0050  }, // 约0.1 mm/min -> m/h 
+            "sand": { Ks: 0.050  }  // 约10 mm/min -> m/h
+        };
+
+        // 计算湿润比核心函数
+        function calculateWetRatio(Q_lph, soilType, s, l) {
+            const Q = Q_lph * 0.001; // 转换为 m/h
+            const Ks = soils[soilType].Ks;
+            let wet;
+            // 计算湿润半径
+            const R = Math.sqrt(Q / (Math.PI * Ks));
+
+            // 判断湿润模式
+            if (s <= 2 * R) {
+                wet = Math.min(2 * R / l, 1) * 100;
+            } else {
+                wet = Math.min((4 * R * R) / (s * l), 1) * 100;
+            }
+            return [wet, R];
+        }
+
+        function calculateWettingRatio() {
+            // 获取输入值
+            const soil = document.getElementById('soilType').value;
+            const q = parseFloat(document.getElementById('dripRate').value);
+            const s = parseFloat(document.getElementById('s').value);
+            const l = parseFloat(document.getElementById('l').value);
+
+            // 验证输入有效性
+            if (isNaN(q) || isNaN(s) || isNaN(l) || q <= 0 || s <= 0 || l <= 0) {
+                document.getElementById('result').innerHTML = 
+                    '<div style="color: red;">请检查输入值是否有效</div>';
+                return;
+            }
+            const [wettingRatio, r] = calculateWetRatio(q, soil, s, l);
+            document.getElementById('result').innerHTML = 
+            `<div style="background-color: #e8f5e9; color: #2e7d32;">
+                湿润比：${wettingRatio.toFixed(2)}%<br>
+                湿润半径 (r)：${r.toFixed(2)} m
+            </div>`;
+        }
+            
+            // 湿润半径查找表（单位：米）
+            //const wettingRadiusTable = {
+            //    clay: { 1:0.10, 2:0.14, 3:0.17, 4:0.20, 6:0.24, 8:0.28 },
+            //    loam: { 1:0.15, 2:0.21, 3:0.26, 4:0.30, 6:0.37, 8:0.42 },
+            //    sand: { 1:0.20, 2:0.28, 3:0.35, 4:0.40, 6:0.49, 8:0.56 }
+            //};
+
+            // 获取湿润半径
+            //const r = wettingRadiusTable[soil][q];
+            // 经验公式法系数
+
+            //const kValues = { clay:0.09, loam:0.12, sand:0.15 };
+            //const r = kValues[soil] * Math.sqrt(q);
+
+
+
+            // 计算湿润比
+            //const wettingRatio = (Math.PI * Math.pow(r, 2)) / (s * l);
+            //var percentage = (wettingRatio * 100).toFixed(2);
+
+            //if(percentage > 100){
+            //    percentage=100;
+            //}
+
+            // 显示结果
+
+    </script>
+</body>
+</html>

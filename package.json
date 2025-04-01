@@ -1,6 +1,9 @@
 {
   "dependencies": {
     "chart.js": "^4.4.4",
-    "chartjs-plugin-annotation": "^3.0.1"
+    "chartjs-plugin-annotation": "^3.0.1",
+    "leaflet-easyprint": "^2.1.9",
+    "leaflet-rotate": "^0.2.8",
+    "leaflet.elevation": "^0.0.3"
   }
 }

@@ -118,19 +118,18 @@
             <div class="input-group">
                 <label>流量单位：</label>
                 <select id="flowUnit" onchange="convertFlowUnit()">
-                    <option value="m3/h">立方米/小时 (m³/h)</option>  
                     <option value="L/s">升/秒 (L/s)</option>
-
+                    <option value="m3/h">立方米/小时 (m³/h)</option>
                     <option value="L/h">升/小时 (L/h)</option>
                 </select>
             </div>
 
             <div class="input-group">
                 <label>流量值：</label>
-                <input type="number" id="flowValue" value="36" step="0.1" min="0">
+                <input type="number" id="flowValue" value="10" step="0.1" min="0">
             </div>
 
-            <div class="input-group">
+            <div class="input-group"></div>
                 <label>末端工作水头 (m)：</label>
                 <input type="number" id="workheadValue" value="30" step="0.1" min="0">
             </div>
@@ -192,7 +191,7 @@
                 "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
                 "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
             },
-            initCenter: [25.10, 111.2],
+            initCenter: [25.0, 110.0],
             initZoom: 12
         };
 
@@ -250,15 +249,15 @@
             // 单位转换
             let Q = flowValue;
             if (flowUnit === 'm3/h') {
-                Q = flowValue ;
+                Q = flowValue / 3.6;
             }
             if (flowUnit === 'L/h') {
-                Q = flowValue /1000;
+                Q = flowValue / 3600;
             }
             if (flowUnit === 'L/s') {
-                Q = Q *3.6;
+                Q = Q * 0.001;
             }
-            Q=Q /3600;
+
             // 计算水头损失
             const D = diameter / 1000;
             const area = Math.PI * (D / 2) ** 2;
@@ -587,17 +586,16 @@
         }
 
         function convertFlowUnit() {
-            document.getElementById('flowValue').value = '36';
             const currentValue = parseFloat(document.getElementById('flowValue').value);
             const unit = document.getElementById('flowUnit').value;
             if (unit === 'm3/h') {
-                document.getElementById('flowValue').value = currentValue ? currentValue  : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue * 3.600 : 'L/s';
             }  
             if (unit === 'L/s') {
-                document.getElementById('flowValue').value = currentValue ? currentValue /3.6 : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue  : 'L/s';
             }
             if (unit === 'L/h') {
-                document.getElementById('flowValue').value = currentValue ? currentValue *1000 : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue *3600 : 'L/s';
             } 
         }
 

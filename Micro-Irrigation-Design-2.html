@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灌溉管道设计</title>
+   
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+      <!-- 使用最新版本 -->
+      <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css" />
+    
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- ECharts JS -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- // 使用 jsDelivr CDN 加载最新版本的 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-measure/dist/leaflet-measure.min.js"></script>
+           
+    
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <style>
+        #map {
+            height: 400px;
+        }
+
+        #chart {
+            height: 400px;
+        }
+
+        .input-group {
+            width: 98%;
+            grid-template-columns: 1fr;
+            margin: 5px 5px;
+        }
+
+        input,
+        select {
+            width: 18%;
+            margin: 2px 2px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #53708d;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.5s;
+        }
+
+        button:hover {
+            background: #29b9aa;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="collectArea">测量灌溉面积</button>
+    <button id="layoutPipeline">布置管道</button>
+
+    <div class="input-group">
+        <label>高程 (m)：</label>
+        <span id="elevationValue"></span>
+    </div>
+    <div class="input-group">
+        <label>经度：</label>
+        <input type="number" id="lngValue" value="25.1" step="0.001" min="0" placeholder="经度" >
+    </div>
+    <div class="input-group">
+        <label>纬度：</label>
+        <input type="number" id="latValue" value="111.2" step="0.001" min="0" placeholder="纬度" >
+    </div>
+    <div id="map"></div>
+    <div class="input-group">
+        <label for="areaName">灌溉地点名称:</label>
+        <input type="text" id="areaName" placeholder="地点名称" readonly>
+
+        <label for="area">灌溉区域面积 (平方米):</label>
+        <input type="number" id="area" placeholder="灌溉区域面积" readonly><br>
+
+        <label for="microArea">微灌面积占比（扣除面积内的非种植区）:</label>
+        <input type="number" id="microArea" value='0.90' ><br>
+
+        <label for="microIrrigationArea">微灌灌溉面积 (平方米):</label>
+        <input type="number" id="microIrrigationArea" placeholder="微灌面积" ><br>
+        <label for="IrrigatedArea">微灌灌溉面积 (亩):</label>
+        <input type="number" id="IrrigatedArea" placeholder="灌溉面积" readonly><br>
+
+        <label for="cropETc">作物日耗水量 (mm/d):</label>
+        <input type="number" id="cropETc" value='5' placeholder="日耗水量">
+        
+
+        
+        <label for="emitterSpacing">灌水器布置间距 (米):</label>
+        <input type="number" id="emitterSpacing" value="0.3" placeholder="灌水器布置间距">
+        <label for="lateralSpacing">毛管间距 (米):</label>
+        <input type="number" id="lateralSpacing" value="1.0" placeholder="毛管间距">
+        <label for="wetRate">微灌湿润比:</label>
+        <input type="number" id="wetRate" value="0.50" placeholder="湿润比">
+        <label for="workingTime">灌溉系统每天工作时间 (小时):</label>
+        <input type="number" id="workingTime" value="20.0" placeholder="工作时间">
+        <label for="workingGroup">灌溉轮灌组数 (个):</label>
+        <input type="number" id="workingGroup" value="1" placeholder="轮灌组数">
+        <label for="pipeEndHead">输水管尾端工作水头 (m):</label>
+        <input type="number" id="pipeEndHead" value="20" placeholder="尾端水头"> 
+
+        <label for="pipeSegmentNum">输水管段数量:</label>
+        <input type="number" id="pipeSegmentNum" value="0" placeholder="管段数"> 
+        <br>
+        <label for="cropType">作物类型：</label>
+        《微灌工程技术规范》（GB/T 50485-2020），确定作物日耗水量（ETc，单位：mm/d）的方法如下：
+        <br>
+        	
+
+
+        <select id="cropType">
+            <option value="grape">葡萄、树、瓜类</option>
+            <option value="food">粮、棉、油等植物</option>
+            <option value="vegetable0">蔬菜(保护地)</option>
+            <option value="vegetable1">蔬菜(露地)</option>
+            <option value="grass_w">冷季型草</option>
+            <option value="grass_s">暖季型草</option>
+
+        </select>
+        <br>
+        <label for="soilType">土壤类型：</label>
+        <select id="soilType">
+            <option value="loam">壤土</option>
+            <option value="sand">砂土</option>
+
+            <option value="clay">黏土</option>
+        </select>
+        <br>
+        <button id="calculateETc">查询作物日耗水量</button><br>
+        滴头流量范围一般为 1.0~10.0 L/h，需根据土壤质地选择：
+        砂质土：流量较大（如4-6 L/h），避免水分快速下渗。
+        壤土：流量（如 2-3 L/h），避免水分下渗。
+        粘质土：流量较小（如1-2 L/h），防止地表积水。<br>
+
+        <button id="calculateDripIntensity">选择滴头流量</button><br>
+        <label for="emitterFlow">灌水器流量 (升/小时):</label>
+        <input type="number" id="emitterFlow" value='2' placeholder="灌水器流量">
+        <br>
+        <button id="calculateMaterials">统计材料用量</button>
+        <button id="calculateWater">计算灌溉流量</button><br>
+        <label for="pipeDiameter">输水管管径 (mm):</label>
+        <input type="number" id="pipeDiameter" value="100" placeholder="管径"> 
+        <br>
+        <label for="pipelineLength">布置的管道长度 (米):</label>
+        <input type="number" id="pipelineLength" placeholder="管道长度" readonly>
+        注意：请选用市场规格的管道内径！！！
+        <br>
+        <button id="calculateHeadloss">计算水头损失</button><br>
+
+    </div>
+    <div id="etcResult"></div>
+    <div id="dripIntensityResult"></div><br>
+    <div id="materialsResult"></div>
+    <div id="waterResult"></div><br>
+    <div id="headlossResult"></div>
+    <div class="chart-container">
+        <canvas id="chart"></canvas>
+    </div>  
+    <!-- <div id="chart"></div> -->
+    <script>
+        let map;
+        const pipeLengths = []; // 管道长度数组
+
+        // 用于存储当前的 Chart.js 实例
+        var myChart = null; 
+
+        // 增强版系统配置 // 在 HTML 中添加一个 canvas 元素用于绘制
+        const MAP_CONFIG = {
+            baseLayers: {
+                "街道地图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+                "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+            },
+            initCenter: [25.0, 110.0],
+            initZoom: 5
+        };
+        // 修正参数顺序错误
+        function calculatedHeadloss(pipeLengths, pipeData, hydraulicData) {
+            pipeData.length = 0; // 清空数组
+            hydraulicData.length = 0;
+
+            let totalH = 0; //parseFloat(document.getElementById('pipeEndHead').value);
+            //hydraulicData.push(0);
+            
+            let accumulatedLength = 0;
+            pipeData.push(accumulatedLength);
+
+            for (let i = 0; i < pipeLengths.length; i++) {
+                const length = pipeLengths[i];
+                const [hf, pipeVelocity] = calculHeadloss(length);
+                
+                totalHf =  hf + 0.1 * Math.pow(pipeVelocity, 2) / (2 * 9.8);
+                accumulatedLength += length;
+
+                hydraulicData.push(totalHf);
+                pipeData.push(accumulatedLength);
+            }
+        }
+
+        // 增强图表管理
+        
+
+        function calculatedHeadloss_1(pipeLengths,hydraulicData,pipeData) {
+            pipeData.push(0);
+
+            var totalH=parseFloat(document.getElementById('pipeEndHead').value);
+            // var hf=parseFloat(document.getElementById('pipeEndHead').value);
+            hydraulicData.push(totalH);
+            var pipeLength=0;
+            for (var i = 0; i < pipeLengths.length-1 ; i++) {
+                // 声明 length 变量
+                var length = pipeLengths[i];
+                
+                console.log('length='+(length));
+                //console.log('hf='+calculHeadloss(length));var totalHeadLoss = headLoss+0.1* Math.pow( pipeVelocity, 2)/2/9.8+ pipeEndHead;
+                var hfdata=calculHeadloss(length);
+                var pipeVelocity=hfdata[1];
+                hf=hfdata[0];
+                console.log('pipeVelocity='+(pipeVelocity));
+                console.log('hf='+(hf));
+                // hf, pipeVelocity=calculHeadloss(length)
+                totalH=totalH+hf+0.1* Math.pow( pipeVelocity, 2)/2/9.8;
+                
+
+                hydraulicData.push(totalH);
+                
+
+                //}
+                
+                pipeLength += length;
+                
+
+                pipeData.push(pipeLength);
+
+                console.log('totalH='+(totalH));
+                console.log('pipeLength='+(pipeLength));
+            } 
+        };
+
+        function drawHeadLossChart (pipeData, hydraulicData,myChart) {
+            // 模拟水力计算
+            //var areaValue = parseFloat(document.getElementById('area').value) || 0;
+
+            // 如果之前的图表实例存在，销毁它
+            // 检查是否已经存在图表，如果存在则销毁它
+            if (myChart!== null && myChart!== undefined && myChart instanceof Chart) {
+                myChart.destroy ();
+                }
+            // 检查数据是否为空
+            if (pipeData.length === 0 || hydraulicData.length === 0) {
+                console.error('管道数据或水头数据为空，无法绘制图表。');
+                return;
+            }
+            // 处理 Math.max 可能出现的 NaN 情况
+            const maxPipeLength = Math.max(...pipeData);
+            const maxHydraulicData = Math.max(...hydraulicData);
+        
+            // 获取 canvas 元素
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            // 合并 pipeData 和 hydraulicData 为点数组
+            const nodes = pipeData.map((pipe, index) => ({
+                x: pipe,
+                y: hydraulicData[index]
+            }));
+
+            // 创建 Chart.js 图表
+            myChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    
+                    datasets: [{
+                        label: '水头高度 (m)',
+                        data: nodes.map(point => ({ x: point.x, y: point.y })),
+                        borderColor: 'f9090a',
+                        backgroundColor: 'rgba(5, 92, 102, 0.1)',
+                        showLine: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'red',
+                        pointBorderColor: 'blue',
+                        borderDash: [5,2,6], // 设置为点划线
+                        tension: 0.2,
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    scales: {
+                      x: {
+                        title: {
+                            display: true,
+                            text: '管道长度 (m)'
+                        },
+                        beginAtZero: true,
+                        type: 'linear',
+                        position: 'bottom' 
+                      },
+                      y: {
+                        title: {
+                            display: true,
+                            text: '总水头线 (m)'
+                        },
+                        beginAtZero: true,
+                        type: 'linear',
+                        position: 'left'
+                      }
+                    },
+
+                  }
+                
+            });  
+            return myChart;
+
+            
+                
+        };
+        function calculHeadloss (pipeLength) {
+            var pipediameter=parseFloat(document.getElementById("pipeDiameter").value);
+            
+            var emitterFlow = parseFloat(document.getElementById('emitterFlow').value);
+            var emitterSpacing = parseFloat(document.getElementById('emitterSpacing').value); 
+            var lateralSpacing = parseFloat(document.getElementById('lateralSpacing').value);
+            var workingGroup = parseFloat(document.getElementById('workingGroup').value);
+            var pipeEndHead = parseFloat(document.getElementById('pipeEndHead').value);
+            var microIrrigationArea = parseFloat(document.getElementById('microIrrigationArea').value);
+
+            // var pipeLength=parseFloat(document.getElementById("pipelineLength").value);
+             // 计算灌水器数量
+             var emitterCount = (microIrrigationArea / (emitterSpacing * lateralSpacing));
+
+            var flowRate = emitterCount * emitterFlow/workingGroup;
+            var density=1000;
+            var viscosity=0.001;
+            //pipediameter=pipediameter/1000;
+            //flowRate=flowRate*0.001; //m3/h->L/h
+            // 计算水力参数
+            const pipeCrossSectionalArea = Math.PI * (pipediameter*0.001 / 2) ** 2;
+            const pipeVelocity = flowRate*0.001/3600 / pipeCrossSectionalArea;
+
+            const reynoldsNumber = (density * pipeVelocity * pipediameter*0.001 ) / viscosity;
+            var d = pipediameter ; //document.calcarea2.diameter.value;
+            
+            var l = pipeLength; //document.calcarea2.commentl.value;
+             //document.calcarea2.commentq.value;
+            flowq=flowRate; // 换算到 l/h
+            // console.log("d="+d);
+            // console.log("flowRate=",flowRate);
+            // d = pipediameter*1000; //换算成 mm
+            if (d<=8){
+              if(reynoldsNumber<=2300){
+                f=1.750;
+                m=1.00;
+                b=4.00;
+
+              }else{
+                f=0.595;
+                m=1.69;
+                b=4.69;
+
+              }
+            }else{
+              f=0.505;
+              m=1.75;
+              b=4.75;
+            }
+            headLoss = f*l *Math.pow( flowq,m)  / Math.pow( d, b); 
+            
+            //
+            //console.log('水头损失: ' + headLoss + ' 米');
+            var ret=[];
+            ret.push(headLoss);
+            ret.push(pipeVelocity)
+            return ret;
+        };
+        document.getElementById('calculateHeadloss').addEventListener('click', function () {
+
+            var pipeSegmentNum=parseFloat(document.getElementById("pipeSegmentNum").value);
+
+            if (pipeSegmentNum<1){
+                alert(`请先在地图中布置管道。管段 ${pipeSegmentNum} 数不能小于 1 !!`);
+                return;
+                
+            }
+
+            var pipediameter=parseFloat(document.getElementById("pipeDiameter").value);
+            
+            var emitterFlow = parseFloat(document.getElementById('emitterFlow').value);
+            var emitterSpacing = parseFloat(document.getElementById('emitterSpacing').value); 
+            var lateralSpacing = parseFloat(document.getElementById('lateralSpacing').value);
+            var workingGroup = parseFloat(document.getElementById('workingGroup').value);
+            var pipeEndHead = parseFloat(document.getElementById('pipeEndHead').value);
+            var microIrrigationArea = parseFloat(document.getElementById('microIrrigationArea').value);
+
+            var pipeLength=parseFloat(document.getElementById("pipelineLength").value);
+             // 计算灌水器数量
+             var emitterCount = (microIrrigationArea / (emitterSpacing * lateralSpacing));
+
+            var flowRate = emitterCount * emitterFlow/workingGroup;
+            var density=1000;
+            var viscosity=0.001;
+            //pipediameter=pipediameter/1000;
+            //flowRate=flowRate*0.001; //m3/h->L/h
+            // 计算水力参数
+            const pipeCrossSectionalArea = Math.PI * (pipediameter*0.001 / 2) ** 2;
+            const pipeVelocity = flowRate*0.001/3600 / pipeCrossSectionalArea;
+
+            const reynoldsNumber = (density * pipeVelocity * pipediameter*0.001 ) / viscosity;
+            var d = pipediameter ; //document.calcarea2.diameter.value;
+            
+            var l = pipeLength; //document.calcarea2.commentl.value;
+             //document.calcarea2.commentq.value;
+            flowq=flowRate; // 换算到 l/h
+            //console.log("d="+d);
+            //console.log("flowRate=",flowRate);
+            // d = pipediameter*1000; //换算成 mm
+            if (d<=8){
+              if(reynoldsNumber<=2300){
+                f=1.750;
+                m=1.00;
+                b=4.00;
+
+              }else{
+                f=0.595;
+                m=1.69;
+                b=4.69;
+
+              }
+            }else{
+              f=0.505;
+              m=1.75;
+              b=4.75;
+            }
+            headLoss = f*l *Math.pow( flowq,m)  / Math.pow( d, b); 
+            // return headLoss;pipeSegmentNum
+            pipeSegmentNum=parseFloat(document.getElementById("pipeSegmentNum").value);
+            var totalHead = headLoss+pipeSegmentNum*0.1* Math.pow( pipeVelocity,2)/2/9.8+ pipeEndHead;
+           
+
+            var result = `管道沿程水头损失: ${headLoss.toFixed(2)}  (米 m)，尾端需要的工作水头：${pipeEndHead} (米 m), <br> 输水管道总水头： ${totalHead.toFixed(2)} (米 m)。`;
+            document.getElementById('headlossResult').innerHTML = result;
+            var pipeData = [];
+            var headLossData = [];
+            var totalHeadToDraw = [];
+            
+            // 假设 calculatedHeadloss 函数已经定义并正确工作
+            calculatedHeadloss(pipeLengths, pipeData, headLossData);
+            
+            // 确保 totalHead 已经在 calculatedHeadloss 中被正确赋值
+            var Hf = totalHead; 
+            totalHeadToDraw.push(Hf);
+            
+            for (let i = 0; i < pipeLengths.length; i++) {
+                Hf -= headLossData[i];
+                totalHeadToDraw.push(Hf);
+            }
+            
+            drawHeadLossChart(pipeData, totalHeadToDraw,myChart);
+            
+            //console.log('管道长度序列:'+ pipeData);
+            //console.log('水头数据序列:'+totalHeadToDraw);
+            
+
+
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                // 获取经纬度输入框的值
+                const initialLat = parseFloat(document.getElementById('latValue').value);
+                const initialLng = parseFloat(document.getElementById('lngValue').value);
+
+                // 检查经纬度值是否有效
+                if (isNaN(initialLat) || isNaN(initialLng)) {
+                    console.error('经纬度值无效，请检查输入。');
+                    return;
+                }
+
+                // 初始化 Leaflet 地图，使用已有的经纬度定位 Container
+                map = L.map('map', {
+                    center: MAP_CONFIG.initCenter,
+                    zoom: MAP_CONFIG.initZoom
+                });
+                L.control.layers(MAP_CONFIG.baseLayers).addTo(map);
+                MAP_CONFIG.baseLayers["卫星影像"].addTo(map);
+                // var map = L.map('map').setView([initialLat, initialLng], 10);
+                //console.log('地图初始化成功，定位到经纬度：', initialLat, initialLng);
+                        // 添加测量控件
+
+
+                // 基础地图层
+                var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+                    maxZoom: 18
+                }).addTo(map);
+                // 卫星图层
+                var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                });
+                // 高程层（这里简单用一个开源地形图层示例）
+                var elevationLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 17,
+                    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+                });
+
+                // 用于存储绘制的多边形和管线
+                var drawnItems = new L.FeatureGroup();
+                map.addLayer(drawnItems);
+
+                // 初始化绘制控件
+                var drawControl = new L.Control.Draw({
+                    draw: {
+                        polyline: false,
+                        polygon: false,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    },
+                    edit: {
+                        featureGroup: drawnItems
+                    }
+                });
+                map.addControl(drawControl);
+
+                // 添加测量控件
+                if (typeof L.Control.Measure === 'function') {
+                    const measureControl = new L.Control.Measure({
+                        position: 'topleft',
+                        primaryLengthUnit: 'meters',
+                        secondaryLengthUnit: 'kilometers',
+                        primaryAreaUnit: 'sqmeters',
+                        secondaryAreaUnit: 'hectares'
+                    });
+                    measureControl.addTo(map);
+                } else {
+                    console.error('Leaflet-measure 插件加载失败，请检查引入的文件。');
+                }
+
+                
+
+                // 采集灌溉面积按钮事件
+                document.getElementById('collectArea').addEventListener('click', function () {
+                    drawControl.setDrawingOptions({
+                        polyline: false,
+                        polygon: true,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    });
+                    // 激活多边形绘制工具
+                    new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+                });
+
+                // 布置管道按钮事件
+                document.getElementById('layoutPipeline').addEventListener('click', function () {
+                    drawControl.setDrawingOptions({
+                        polyline: true,
+                        polygon: false,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    });
+                    // 激活折线绘制工具
+                    new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable();
+                });
+
+
+
+                // 创建一个显示经纬度和当前位置信息的控件
+                var locationControl = L.control({ position: 'bottomleft' });
+                locationControl.onAdd = function (map) {
+                    var div = L.DomUtil.create('div', 'location-info');
+                    div.innerHTML = '<p>经纬度: 暂无<br>当前位置信息: 暂无</p>';
+                    return div;
+                };
+                locationControl.addTo(map);
+
+                // 获取位置的函数
+                async function getLocationFromLatLng(lat, lng) {
+                    const apiKey = '7f6c79b07c8445d787a932bc78109d13'; // Replace with your geocoding API key
+                    const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`;
+                    // console.log('请求位置信息，URL:', url);
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (data.results.length > 0) {
+                            return data.results[0].formatted;
+                        } else {
+                            throw new Error('No results found');
+                        }
+                    } catch (error) {
+                        console.error('获取位置信息出错:', error);
+                        throw error;
+                    }
+                }
+
+                // 获取高程的函数
+                async function getElevation(lat, lng) {
+                    const url = `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`;
+                    //console.log('请求高程信息，URL:', url);
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (data.results && data.results.length > 0) {
+                            return data.results[0].elevation;
+                        } else {
+                            throw new Error('No elevation data found');
+                        }
+                    } catch (error) {
+                        console.error('获取高程信息出错:', error);
+                        throw error;
+                    }
+                }
+
+                // 监听地图点击事件，更新经纬度、当前位置信息和高程
+                map.on('click', async function (e) {
+                    var lat = e.latlng.lat.toFixed(6);
+                    var lng = e.latlng.lng.toFixed(6);
+                    var locationInfoDiv = document.querySelector('.location-info p');
+                    locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: 正在查询...`;
+                    document.getElementById('elevationValue').textContent = '正在查询...';
+
+                    try {
+                        const location = await getLocationFromLatLng(lat, lng);
+                        locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: ${location}`;
+                        document.getElementById('latValue').value = lat;
+                        document.getElementById('lngValue').value = lng;
+                        document.getElementById('areaName').value = location;
+
+                        const elevation = await getElevation(lat, lng);
+                        document.getElementById('elevationValue').textContent = elevation;
+                    } catch (error) {
+                        locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: 查询出错，错误详情: ${error.message}`;
+                        document.getElementById('elevationValue').textContent = '查询出错';
+                    }
+                });
+
+                // 处理绘制完成事件
+
+
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    var type = e.layerType;
+                    var layer = e.layer;
+
+                    if (type === 'polygon') {
+                                        // 设置多边形样式
+                        layer.setStyle({
+                            color: '#29b9aa', // 多边形线段颜色
+                            fillColor: 'rgba(41, 185, 170, 0.2)', // 多边形填充颜色
+                            fillOpacity: 0.5
+                        });
+
+                        // 计算灌溉面积
+                        var area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+                        area = Math.round(area * 100) / 100; 
+                        var microIrrigationArea =area* parseFloat(document.getElementById('microArea').value) ;
+                        microIrrigationArea = Math.round(microIrrigationArea * 100) / 100;
+                        // console.log('灌溉面积: ' + area + ' 平方米'); 
+                        document.getElementById('area').value = area; 
+
+                        document.getElementById('microIrrigationArea').value = microIrrigationArea;
+                        var mu=area/666.67;
+                        mu=mu.toFixed(2);
+                        document.getElementById('IrrigatedArea').value = mu;
+
+                    } else if (type === 'polyline') {
+                                        // 设置折线样式
+                        layer.setStyle({
+                            color: '#ff6384', // 折线颜色
+                            weight: 3,
+                            opacity: 1
+                        });
+                        // 计算管线长度
+                        var pipelineLength = 0;
+                        var latlngs = layer.getLatLngs();
+
+                        
+                        for (var i = 0; i < latlngs.length - 1; i++) {
+                            // 声明 length 变量
+                            var length = latlngs[i].distanceTo(latlngs[i + 1]);
+                            pipeLengths.push(length);
+                            pipelineLength += length;
+
+                        }
+                        pipeSegmentNum=latlngs.length- 1;
+                        document.getElementById('pipeSegmentNum').value = pipeSegmentNum;
+
+                        //console.log('管线长度: ' + pipelineLength + ' 米');
+                        pipelineLength=pipelineLength.toFixed(2);
+                        document.getElementById('pipelineLength').value = pipelineLength;
+                    }
+
+                    // 确保 drawnItems 已定义
+                    if (typeof drawnItems !== 'undefined') {
+                        drawnItems.addLayer(layer);
+                    }
+                });
+                    
+                    
+
+                // 计算灌溉材料按钮事件
+                document.getElementById('calculateMaterials').addEventListener('click', function () {
+                    var microIrrigationArea = parseFloat(document.getElementById('microIrrigationArea').value);
+                    var emitterFlow = parseFloat(document.getElementById('emitterFlow').value);
+                    var pipelineLength = parseFloat(document.getElementById('pipelineLength').value);
+                    var emitterSpacing = parseFloat(document.getElementById('emitterSpacing').value);
+                    var lateralSpacing = parseFloat(document.getElementById('lateralSpacing').value);
+
+                    if (isNaN(microIrrigationArea) || isNaN(lateralSpacing) || isNaN(emitterSpacing)) {
+                        alert('请输入有效的微灌灌溉面积、布置间距、灌水器流量和管线长度。');
+                        return;
+                    }
+
+                    // 简单计算，实际计算需根据具体情况调整
+                    var emitterCount = (microIrrigationArea / (emitterSpacing * lateralSpacing));
+                    var lateralTotal = (microIrrigationArea / lateralSpacing);
+
+                    // 
+                    emitterCount = emitterCount.toFixed(0);
+
+                    var result = `灌水器数量: ${emitterCount} (个)<br> 毛管总长度: ${lateralTotal.toFixed(2)} (米 m)`;
+                    document.getElementById('materialsResult').innerHTML = result;
+                });
+
+                // 计算灌水量和灌溉流量按钮事件
+                document.getElementById('calculateWater').addEventListener('click', function () {
+                    var microIrrigationArea = parseFloat(document.getElementById('microIrrigationArea').value);
+                    var emitterFlow = parseFloat(document.getElementById('emitterFlow').value);
+                    var emitterSpacing = parseFloat(document.getElementById('emitterSpacing').value); 
+                    var lateralSpacing = parseFloat(document.getElementById('lateralSpacing').value);
+                    var workingTime = parseFloat(document.getElementById('workingTime').value);
+                    var wetRate = parseFloat(document.getElementById('wetRate').value);
+                    var microIrrigationArea = parseFloat(document.getElementById('microIrrigationArea').value); 
+                    var workingGroup=parseFloat(document.getElementById('workingGroup').value);
+                    var cropETc=parseFloat(document.getElementById('cropETc').value);
+                    var workingTime=parseFloat(document.getElementById('workingTime').value);
+                    
+
+                    if (isNaN(microIrrigationArea) || isNaN(emitterFlow) || isNaN(emitterSpacing) || isNaN(lateralSpacing)) {
+                        alert('请输入有效的微灌灌溉面积、灌水器流量、灌水器布置间距和毛管间距。');
+                        return;
+                    }
+
+                    // 计算灌水器数量
+                    var emitterCount = (microIrrigationArea / (emitterSpacing * lateralSpacing));
+                    // 计算灌水流量（L/hr）
+                    var waterFlow = emitterCount * emitterFlow/workingGroup;
+                    // 计算灌溉流量
+                    waterFlow = waterFlow * 0.001; //（L/hr）->（m³/hr）
+                    // 计算灌水量（假设灌溉时间为 20 小时）
+                    var waterVolume=workingTime*waterFlow //m³/hr*h->m³/day
+                    waterVolume=waterVolume.toFixed(2);
+                    var irrigatedRate=waterVolume/666.67; //  m³/day->亩/day  
+
+                    var emitterIrrigationRate = emitterFlow/ (emitterSpacing*lateralSpacing*wetRate); // 滴灌强度（mm/hr）
+
+                    //var emitterIrrigationRate = (emitterFlow * 1000) / (emitterSpacing *1000 * lateralSpacing *1000 * wetRate); // 滴灌强度（mm/hr）
+
+
+
+
+                    //D 为管道内径（单位：米），Q 为流量（单位：立方米/秒），v 为经济流速（单位：米/秒）
+                    var pipeDiameter=Math.sqrt( waterFlow/3600*4/Math.PI/1.5)*1000;
+                    pipeDiameter=pipeDiameter.toFixed(2);
+
+                    document.getElementById('pipeDiameter').value=pipeDiameter;
+
+                    //微灌系统设计流量公式 workingTime
+                    var irriFlow=microIrrigationArea*cropETc*0.001/0.9;
+                    irriFlow=irriFlow.toFixed(2);
+                    //waterFlow=waterFlow*3600;
+
+                    var result = `总的灌水量: ${waterVolume} (立方米/天 m³/d) ，灌水定额: ${irrigatedRate.toFixed(2)} (立方米/亩 m³/亩) ，每日工作 ${workingTime.toFixed(2)} 小时；<br>灌水强度： ${emitterIrrigationRate.toFixed(2)} (毫米/小时 mm/hr)。
+                    <br>计算管径： ${pipeDiameter} （毫米 mm）, 注意：请选用市场规格的管道内径！！！再计算水头损失。
+                    <br>规范规定的流量：${irriFlow} (立方米/小时 m3/hr) ？ （<=）系统总灌溉流量: ${waterFlow.toFixed(2)} (立方米/小时 m3/hr)。`;
+                    document.getElementById('waterResult').innerHTML = result;
+                });
+
+                // 计算作物日耗水量按钮事件
+                document.getElementById('calculateETc').addEventListener('click', function () {
+                    var cropType = document.getElementById('cropType').value;
+                    var etc;
+                    var wetRate = parseFloat(document.getElementById('wetRate').value);
+                    switch (cropType) {
+                        case 'food':
+                            etc = '4～7 mm/d';
+                            wetRate=0.70;
+                            break;
+                        case 'grape':
+                            etc = '3～7 mm/d';
+                            wetRate=0.40;
+                            break;
+                        case 'vegetable0':
+                            // 这里可根据实际情况补充蔬菜的需水量范围
+                            etc = '2～4 mm/d';
+                            wetRate=0.90;
+                            break;
+                        case 'vegetable1':
+                        // 这里可根据实际情况补充蔬菜的需水量范围
+                            etc = '4～7 mm/d';
+                            wetRate=0.90;
+                            break;
+                        case 'grass_w':
+                        // 这里可根据实际情况补充蔬菜的需水量范围
+                            etc = '5～8 mm/d';
+                            wetRate=0.90;
+                            break;
+                        case 'grass_s':
+                        // 这里可根据实际情况补充蔬菜的需水量范围
+                        etc = '3～5 mm/d';
+                        wetRate=0.95;
+                        break;    
+
+                        default:
+                            etc = '未知作物类型';
+                    }
+                    document.getElementById('wetRate').value = wetRate;
+                    var result = `作物日耗水量 (ETc): ${etc}`;
+                    document.getElementById('etcResult').innerHTML = result;
+                });
+
+                // 计算滴灌强度上限按钮事件
+                document.getElementById('calculateDripIntensity').addEventListener('click', function () {
+                    var soilType = document.getElementById('soilType').value;
+                    var dripIntensity;
+                    switch (soilType) {
+                        case 'sand':
+                            dripIntensity = ' >= 20 mm/h';
+                            
+                            document.getElementById('emitterFlow').value=4;
+                            break;
+                        case 'clay':
+                            dripIntensity = ' < 5 mm/h';
+                            document.getElementById('emitterFlow').value=1;
+                            break;
+                        default:
+                            document.getElementById('emitterFlow').value=2;
+                            dripIntensity = '5 mm/h < 滴灌强度 < 20 mm/h';
+                    }
+                    var result = `滴灌强度: ${dripIntensity}`;
+                    document.getElementById('dripIntensityResult').innerHTML = result;
+                });
+            } catch (error) {
+                console.error('地图初始化出错：', error);
+            }
+        });
+
+ 
+    </script>
+</body>
+
+</html>    

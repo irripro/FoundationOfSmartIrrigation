@@ -3,13 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Web Project</title>
+    <title>Crop Model Research</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 </head>
 <body>
-    <h1>Hello, World!</h1>
-    <button id="myButton">Click me</button>
+    <h1>Crop Model Research</h1>
+    
+    <div>
+        <label for="cropSelect">Select Crop Variety:</label>
+        <select id="cropSelect">
+            <option value="1">Crop 1</option>
+            <option value="2">Crop 2</option>
+            <option value="3">Crop 3</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="areaSelect">Select Planting Area:</label>
+        <select id="areaSelect">
+            <option value="Area 1">Area 1</option>
+            <option value="Area 2">Area 2</option>
+            <option value="Area 3">Area 3</option>
+        </select>
+    </div>
+    
+    <div id="chart" style="width: 600px;height:400px;"></div>
+    <div id="map" style="width: 600px;height:400px;"></div>
 
     <script src="script.js"></script>
+    <script>
+        // Initialize ECharts
+        var myChart = echarts.init(document.getElementById('chart'));
+        // Initialize Leaflet map
+        var map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+    </script>
 </body>
 </html>

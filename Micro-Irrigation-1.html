@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灌溉分析</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- ECharts JS -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <style>
+        #map {
+            height: 400px;
+        }
+
+        #chart {
+            height: 400px;
+        }
+
+        button {
+            margin: 5px;
+        }
+
+        .input-group {
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="collectArea">采集灌溉面积</button>
+    <button id="layoutPipeline">布置管道</button>
+    <button id="showSatellite">显示卫星图</button>
+    <button id="showElevation">显示高程层</button>
+    <div class="input-group">
+        <label>高程 (m)：</label>
+        <span id="elevationValue"></span>
+    </div>
+    <div class="input-group">
+        <label>经度：</label>
+        <input type="number" id="lngValue" value="25.1" step="0.001" min="0">
+    </div>
+    <div class="input-group">
+        <label>纬度：</label>
+        <input type="number" id="latValue" value="111.2" step="0.001" min="0">
+    </div>
+    <div id="map"></div>
+    <label for="area">灌溉区域面积 (平方米):</label>
+    <input type="number" id="area" placeholder="输入灌溉区域面积" readonly>
+    <label for="pipelineLength">管线长度 (米):</label>
+    <input type="number" id="pipelineLength" placeholder="输入管线长度" readonly>
+    <div id="chart"></div>
+    <script>
+        let map;
+        // 增强版系统配置 // 在 HTML 中添加一个 canvas 元素用于绘制管道纵断面图
+        const MAP_CONFIG = {
+            baseLayers: {
+                "街道地图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+                "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+            },
+            initCenter: [25.0, 110.0],
+            initZoom: 5
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                // 获取经纬度输入框的值
+                const initialLat = parseFloat(document.getElementById('latValue').value);
+                const initialLng = parseFloat(document.getElementById('lngValue').value);
+
+                // 检查经纬度值是否有效
+                if (isNaN(initialLat) || isNaN(initialLng)) {
+                    console.error('经纬度值无效，请检查输入。');
+                    return;
+                }
+
+                // 初始化 Leaflet 地图，使用已有的经纬度定位 Container
+                map = L.map('map', {
+                    center: MAP_CONFIG.initCenter,
+                    zoom: MAP_CONFIG.initZoom
+                });
+                L.control.layers(MAP_CONFIG.baseLayers).addTo(map);
+                MAP_CONFIG.baseLayers["卫星影像"].addTo(map);
+               // var map = L.map('map').setView([initialLat, initialLng], 10);
+                //console.log('地图初始化成功，定位到经纬度：', initialLat, initialLng);
+
+                // 基础地图层
+                var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+                    maxZoom: 18
+                }).addTo(map);
+                // 卫星图层
+                var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                });
+                // 高程层（这里简单用一个开源地形图层示例）
+                var elevationLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 17,
+                    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+                });
+
+                // 用于存储绘制的多边形和管线
+                var drawnItems = new L.FeatureGroup();
+                map.addLayer(drawnItems);
+
+                // 初始化绘制控件
+                var drawControl = new L.Control.Draw({
+                    draw: {
+                        polyline: false,
+                        polygon: false,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    },
+                    edit: {
+                        featureGroup: drawnItems
+                    }
+                });
+                map.addControl(drawControl);
+
+                // 采集灌溉面积按钮事件
+                document.getElementById('collectArea').addEventListener('click', function () {
+                    drawControl.setDrawingOptions({
+                        polyline: false,
+                        polygon: true,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    });
+                    // 激活多边形绘制工具
+                    new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+                });
+
+                // 布置管道按钮事件
+                document.getElementById('layoutPipeline').addEventListener('click', function () {
+                    drawControl.setDrawingOptions({
+                        polyline: true,
+                        polygon: false,
+                        circle: false,
+                        rectangle: false,
+                        marker: false
+                    });
+                    // 激活折线绘制工具
+                    new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable();
+                });
+
+                // 显示卫星图按钮事件
+                document.getElementById('showSatellite').addEventListener('click', function () {
+                    map.removeLayer(osmLayer);
+                    map.addLayer(satelliteLayer);
+                });
+
+                // 显示高程层按钮事件
+                document.getElementById('showElevation').addEventListener('click', function () {
+                    map.removeLayer(osmLayer);
+                    map.addLayer(elevationLayer);
+                });
+
+                // 创建一个显示经纬度和当前位置信息的控件
+                var locationControl = L.control({ position: 'bottomleft' });
+                locationControl.onAdd = function (map) {
+                    var div = L.DomUtil.create('div', 'location-info');
+                    div.innerHTML = '<p>经纬度: 暂无<br>当前位置信息: 暂无</p>';
+                    return div;
+                };
+                locationControl.addTo(map);
+
+                // 获取位置的函数
+                async function getLocationFromLatLng(lat, lng) {
+                    const apiKey = '7f6c79b07c8445d787a932bc78109d13'; // Replace with your geocoding API key
+                    const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`;
+                    console.log('请求位置信息，URL:', url);
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (data.results.length > 0) {
+                            return data.results[0].formatted;
+                        } else {
+                            throw new Error('No results found');
+                        }
+                    } catch (error) {
+                        console.error('获取位置信息出错:', error);
+                        throw error;
+                    }
+                }
+
+                // 获取高程的函数
+                async function getElevation(lat, lng) {
+                    const url = `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`;
+                    console.log('请求高程信息，URL:', url);
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        if (data.results && data.results.length > 0) {
+                            return data.results[0].elevation;
+                        } else {
+                            throw new Error('No elevation data found');
+                        }
+                    } catch (error) {
+                        console.error('获取高程信息出错:', error);
+                        throw error;
+                    }
+                }
+
+                // 监听地图点击事件，更新经纬度、当前位置信息和高程
+                map.on('click', async function (e) {
+                    var lat = e.latlng.lat.toFixed(6);
+                    var lng = e.latlng.lng.toFixed(6);
+                    var locationInfoDiv = document.querySelector('.location-info p');
+                    locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: 正在查询...`;
+                    document.getElementById('elevationValue').textContent = '正在查询...';
+
+                    try {
+                        const location = await getLocationFromLatLng(lat, lng);
+                        locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: ${location}`;
+                        document.getElementById('latValue').value = lat;
+                        document.getElementById('lngValue').value = lng;
+
+                        const elevation = await getElevation(lat, lng);
+                        document.getElementById('elevationValue').textContent = elevation;
+                    } catch (error) {
+                        locationInfoDiv.innerHTML = `经纬度: ${lat}, ${lng}<br>当前位置信息: 查询出错，错误详情: ${error.message}`;
+                        document.getElementById('elevationValue').textContent = '查询出错';
+                    }
+                });
+
+                // 处理绘制完成事件
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    var type = e.layerType;
+                    var layer = e.layer;
+
+                    if (type === 'polygon') {
+                        // 计算灌溉面积
+                        var area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+                        console.log('灌溉面积: ' + area + ' 平方米');
+                        document.getElementById('area').value = area;
+                    } else if (type === 'polyline') {
+                        // 计算管线长度
+                        var pipelineLength = 0;
+                        var latlngs = layer.getLatLngs();
+                        for (var i = 0; i < latlngs.length - 1; i++) {
+                            pipelineLength += latlngs[i].distanceTo(latlngs[i + 1]);
+                        }
+                        console.log('管线长度: ' + pipelineLength + ' 米');
+                        document.getElementById('pipelineLength').value = pipelineLength;
+                    }
+
+                    // 模拟水力计算
+                    var areaValue = parseFloat(document.getElementById('area').value) || 0;
+                    var hydraulicData = [areaValue, areaValue * 0.8, areaValue * 0.6];
+
+                    // 初始化 ECharts 图表
+                    var myChart = echarts.init(document.getElementById('chart'));
+
+                    // 指定图表的配置项和数据
+                    var option = {
+                        xAxis: {
+                            type: 'category',
+                            data: ['流量', '压力', '水头损失']
+                        },
+                        yAxis: {
+                            type: 'value'
+                        },
+                        series: [{
+                            data: hydraulicData,
+                            type: 'bar'
+                        }]
+                    };
+
+                    // 使用刚指定的配置项和数据显示图表。
+                    myChart.setOption(option);
+
+                    drawnItems.addLayer(layer);
+                });
+            } catch (error) {
+                console.error('地图初始化出错：', error);
+            }
+        });
+    </script>
+</body>
+
+</html>    

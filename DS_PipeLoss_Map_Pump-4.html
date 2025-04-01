@@ -118,19 +118,18 @@
             <div class="input-group">
                 <label>流量单位：</label>
                 <select id="flowUnit" onchange="convertFlowUnit()">
-                    <option value="m3/h">立方米/小时 (m³/h)</option>  
                     <option value="L/s">升/秒 (L/s)</option>
-
+                    <option value="m3/h">立方米/小时 (m³/h)</option>
                     <option value="L/h">升/小时 (L/h)</option>
                 </select>
             </div>
 
             <div class="input-group">
                 <label>流量值：</label>
-                <input type="number" id="flowValue" value="36" step="0.1" min="0">
+                <input type="number" id="flowValue" value="10" step="0.1" min="0">
             </div>
 
-            <div class="input-group">
+            <div class="input-group"></div>
                 <label>末端工作水头 (m)：</label>
                 <input type="number" id="workheadValue" value="30" step="0.1" min="0">
             </div>
@@ -148,12 +147,6 @@
             <div class="input-group">
                 <label>管线长度 (m)：</label>
                 <input type="number" id="length" value="100" min="0"><br>
-                
-                
-                <div class="input-group">
-                    <label>高程 (m)：</label>
-                    <span id="elevationValue"></span>
-                </div>
                
                 <div class="map-toolbar">
                     <button onclick="syncFromMap()" style="margin-top:5px;">从地图获取长度</button>
@@ -178,21 +171,18 @@
 
         <div id="mapContainer"></div>
         <div class="chart-container">
-            <canvas id="lossChart"></canvas><br>
-            <canvas id="pipeProfileChart"></canvas>
+            <canvas id="lossChart"></canvas>
         </div>
-        
-
     </div>
     <script>
-        // 增强版系统配置 // 在 HTML 中添加一个 canvas 元素用于绘制管道纵断面图
+        // 增强版系统配置
         const MAP_CONFIG = {
             baseLayers: {
                 "街道地图": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
                 "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
                 "地形图": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
             },
-            initCenter: [25.10, 111.2],
+            initCenter: [25.0, 110.0],
             initZoom: 12
         };
 
@@ -217,13 +207,12 @@
             segments: []
         };
         // 获取位置的函数
-        
         async function getLocationFromLatLng(lat, lng) {
             const apiKey = '7f6c79b07c8445d787a932bc78109d13'; // Replace with your geocoding API key
             const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`);
             const data = await response.json();
             if (data.results.length > 0) {
-                // document.getElementById('locationValue').value=data.results[0].formatted;
+                document.getElementById('locationValue').value=data.results[0].formatted;
                 return data.results[0].formatted;
             } else {
                 throw new Error('No results found');
@@ -231,10 +220,6 @@
         }
 
         // 核心计算函数
-        const lengths = [0];
-        const elevations = [];
-        let segmentLength =[];
-        let headLoss =[];
 
         function calculate() {
             // 获取输入参数 workheadValue
@@ -247,89 +232,33 @@
             const workhead = parseFloat(document.getElementById('workheadValue').value);
             const C = parseInt(document.getElementById('material').value);
 
+            // 单位转换const Q = flowUnit === 'm3/h' ? flowValue / 3.6 : flowValue;
+            
             // 单位转换
             let Q = flowValue;
             if (flowUnit === 'm3/h') {
-                Q = flowValue ;
+                Q = flowValue / 3.6;
             }
             if (flowUnit === 'L/h') {
-                Q = flowValue /1000;
+                Q = flowValue / 3600;
             }
             if (flowUnit === 'L/s') {
-                Q = Q *3.6;
+                Q = Q * 0.001;
             }
-            Q=Q /3600;
+
             // 计算水头损失
             const D = diameter / 1000;
             const area = Math.PI * (D / 2) ** 2;
             const velocity = Q / area;
             const hf = (10.67 * (Q ) ** 1.852 * length) / (C ** 1.852 * D ** 4.871);
             const Hp = hf + workhead;
-            
             // 更新显示结果
-            showResults(velocity, hf, Hp);
+            showResults(velocity, hf,Hp);
             updateChart(hf);
             updatePipelineStyle(hf / length);
-            recommendPump(Q, Hp);
-
-            // 绘制管道纵断面图
-            drawPipeProfile();
+            
+            recommendPump(Q , Hp);
         }
-
-        async function drawPipeProfile() {
-            const coordinates = currentPipeline.coordinates;
-            if (coordinates.length < 2) return;
-
-            // 获取每个点的高程数据
-            for (let i = 0; i < coordinates.length; i++) {
-                const lat = coordinates[i].lat;
-                const lng = coordinates[i].lng;
-                const elevation = await getElevation(lat, lng);
-
-                if (i > 0) {
-                    const prevLength = lengths[i - 1];
-                    segmentLength = map.distance(coordinates[i - 1], coordinates[i]); // 标注为两位小数
-                    //segmentLength=Math.floor(segmentLength).toFixed(2);
-                    segmentLength==Math.floor(segmentLength*100)/100
-                    segmentLength=segmentLength.toFixed(2);
-                    lengths.push(prevLength + parseFloat(segmentLength));
-                }
-            }
-
-            // 绘制管道纵断面图
-            const ctx = document.getElementById('pipeProfileChart').getContext('2d');
-
-            window.pipeProfileChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: lengths,
-                    datasets: [{
-                        label: '管道纵断面地面高程',
-                        data: elevations,
-                        borderColor: 'blue',
-                        fill: false
-                    }]
-                },
-                options: {
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: '管道长度 (m)'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: '高程 (m)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-
 
         // 结果展示函数
         function showResults(v, hf,Hp) {
@@ -387,33 +316,13 @@
             document.getElementById('lngValue').value=latlng.lng;
             currentPipeline.coordinates.push(latlng);
             const location = await getLocationFromLatLng(latlng.lat, latlng.lng);
-            // console.log(`Location: ${location}`);
-            document.getElementById('locationValue').value = ` ${location} `;
-            // 获取高程数据
-            const elevation = await getElevation(latlng.lat, latlng.lng);
-            // console.log(`Elevation: ${elevation} m`);
-            // 在界面上显示高程数据
-            document.getElementById('elevationValue').textContent = ` ${elevation.toFixed(2)} m`;
+            console.log(`Location: ${location}`);
 
             updatePipelineDisplay();
             updateLengthInput();
         }
 
-        // 获取高程数据的函数
-        async function getElevation(lat, lng) {
-            //const apiKey = '7f6c79b07c8445d787a932bc78109d13'; // Replace with your geocoding API key
-            //const response = await fetch(`https://api.opencagedata.com/geocode/v1/lookup?locations=${lat},${lng}&key=${apiKey}`);
-            const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`);
-            const data = await response.json();
-            if (data.results.length > 0) {
-                return data.results[0].elevation;
-            } else {
-                throw new Error('No elevation data found');
-            }
-        }
-
-
-        async function updatePipelineDisplay() {
+        function updatePipelineDisplay() {
             if (currentPipeline.polyline) {
                 map.removeLayer(currentPipeline.polyline);
             }
@@ -424,27 +333,16 @@
             // 补充：更新 segments 信息，这里简单假设每一段的管径和材质相同
             const diameter = parseFloat(document.getElementById('diameter').value);
             const C = parseInt(document.getElementById('material').value);
-            currentPipeline.segments = []; // 清空之前的 segments 信息
-
             for (let i = 1; i < currentPipeline.coordinates.length; i++) {
                 const segmentLength = map.distance(currentPipeline.coordinates[i - 1], currentPipeline.coordinates[i]);
-                const startElevation = await getElevation(currentPipeline.coordinates[i - 1].lat, currentPipeline.coordinates[i - 1].lng);
-                const endElevation = await getElevation(currentPipeline.coordinates[i].lat, currentPipeline.coordinates[i].lng);
-                
-                elevations.push(endElevation.toFixed(2));
-                
-                const elevationDifference = endElevation - startElevation;
-
                 currentPipeline.segments.push({
                     length: segmentLength,
                     diameter: diameter,
-                    C: C,
-                    startElevation: startElevation,
-                    endElevation: endElevation,
-                    elevationDifference: elevationDifference
+                    C: C
                 });
             }
         }
+
         function updateLengthInput() {
             const length = calculatePipelineLength();
             const lengthInput = document.getElementById('length');
@@ -498,7 +396,7 @@
                 data: {
                     labels: Array.from({ length: 11 }, (_, i) => i * 10) ,
                     datasets: [{
-                        label: '沿程水头损失分布 X =  Length %,Y = hf (m)',
+                        label: '沿程水头损失分布 X = L %,Y = hf (m)',
                         data: Array.from({ length: 11 }, (_, i) => hf * (i / 10)),
                         borderColor: '#3498db',
                         tension: 0.1
@@ -587,17 +485,16 @@
         }
 
         function convertFlowUnit() {
-            document.getElementById('flowValue').value = '36';
             const currentValue = parseFloat(document.getElementById('flowValue').value);
             const unit = document.getElementById('flowUnit').value;
             if (unit === 'm3/h') {
-                document.getElementById('flowValue').value = currentValue ? currentValue  : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue * 3.600 : 'L/s';
             }  
             if (unit === 'L/s') {
-                document.getElementById('flowValue').value = currentValue ? currentValue /3.6 : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue  : 'L/s';
             }
             if (unit === 'L/h') {
-                document.getElementById('flowValue').value = currentValue ? currentValue *1000 : '';
+                document.getElementById('flowValue').value = currentValue ? currentValue *3600 : 'L/s';
             } 
         }
 

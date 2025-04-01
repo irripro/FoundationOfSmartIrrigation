@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "leaflet-easyprint": "^2.1.9",
+    "leaflet-rotate": "^0.2.8"
+  }
+}

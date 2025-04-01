@@ -36,7 +36,7 @@
 
         .controls {
             position: absolute;
-            top: 20px;
+            top: 50px;
             left: 10px;
             background-color: rgba(255, 255, 255, 0.8);
             padding: 10px;
@@ -58,7 +58,12 @@
         }
     </style>
     <!-- 引入 Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> -->
+    <!-- 使用 cdnjs 的 Plotly.js -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/plotly.js/dist/plotly.min.js"></script> -->
+
+<!-- 或使用 unpkg 的 Plotly.js -->
+<script src="https://unpkg.com/plotly.js@2.18.2/dist/plotly.min.js"></script>
 </head>
 
 <body>
@@ -200,10 +205,10 @@
             const traces = [];
 
             // 创建田块平面
-            const fieldX = [-Length, Length, Length, -Length, -Length];
-            const fieldY = [0, 0, B, B, 0];
-            const fieldZ = [0, 0, 0, 0, 0];
-            const fieldTrace = {
+            var fieldX = [-Length, Length, Length, -Length, -Length];
+            var fieldY = [0, 0, B, B, 0];
+            var fieldZ = [0, 0, 0, 0, 0];
+            var fieldTrace = {
                 x: fieldX,
                 y: fieldY,
                 z: fieldZ,
@@ -389,6 +394,47 @@
             }
 
             const results = `灌水器工作水头：${H_e.toFixed(2)} m , 最小水头：${hmin.toFixed(2)} m , <br> 支管总水头：${hmax.toFixed(2)} m  ， <br> 总流量：${q_m3h.toFixed(2)} m^3/h。`+lengStr;
+                    // 初始化 traces 数组
+            var traces1 = [];
+
+            // 创建最低水头平面
+            Hmin=H_e * .9;
+            fieldX = [-Length, Length, Length, -Length, -Length];
+            fieldY = [0, 0, B, B, 0];
+            fieldZ = [Hmin, Hmin, Hmin, Hmin, Hmin];
+            fieldTrace = {
+                x: fieldX,
+                y: fieldY,
+                z: fieldZ,
+                mode: 'lines',
+                type: 'scatter3d',
+                line: {
+                    color: '#fe90f2',
+                    width: 6
+                },
+                name: '最低水头平面'
+            };
+            traces.push(fieldTrace);
+
+            Hmax=H_e * 1.2
+            // 创建最高水头平面
+            
+            fieldX = [-Length, Length, Length, -Length, -Length];
+            fieldY = [0, 0, B, B, 0];
+            fieldZ = [Hmax, Hmax, Hmax, Hmax, Hmax];
+            fieldTrace = {
+                x: fieldX,
+                y: fieldY,
+                z: fieldZ,
+                mode: 'lines',
+                type: 'scatter3d',
+                line: {
+                    color: '#fc8142',
+                    width: 6
+                },
+                name: '最高水头平面'
+            };
+            traces.push(fieldTrace);
 
             if (hmin < H_e * .9) {
                 const message = `灌水器工作压力 ${hmin.toFixed(2)} 太低，需要调整管径  ！！！`;
