@@ -1,33 +1,423 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>沿程水头损失计算器</title>
-<style>
-    body {
-        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4f0fb 100%);
-        color: var(--dark);
-        line-height: 1.6;
-        -webkit-font-smoothing: antialiased;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专业管道水力计算工具 | 工程流体力学解决方案</title>
+    <style>
+        :root {
+            --primary: #3a86ff;
+            --primary-light: #8bb8ff;
+            --secondary: #8338ec;
+            --dark: #212529;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
 
-    .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-    textarea, select, input[type="number"], button { display: block; width: 100%; margin: 10px 0; }
-  .result { margin-top: 20px; }
-</style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            padding: 60px 0 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--gray);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .custom-input {
+            width: 80%;
+            height: 48px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            padding: 30px;
+            transition: var(--transition);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 24px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 25px 0 15px;
+            color: var(--dark);
+            position: relative;
+            padding-left: 15px;
+        }
+
+        h3::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 5px;
+            height: 70%;
+            width: 4px;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+            border-radius: 2px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        ul, ol {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        li::before {
+            content: '•';
+            color: var(--primary);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        .highlight {
+            background-color: rgba(58, 134, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        th {
+            background-color: rgba(58, 134, 255, 0.1);
+            font-weight: 600;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(58, 134, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(58, 134, 255, 0.4);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 500px) {
+            header {
+                padding: 40px 0 30px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .card-icon {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+            
+            h2 {
+                font-size: 1.3rem;
+            }
+            
+            h3 {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
 </head>
 <body>
-  <meta name="robots" content="no-source-map" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>
-      管道沿程水头损失计算器&nbsp;|&nbsp;专业水力计算工具
-  </title>
-  <div class="jz_fix_ue_img">
+    <div class="container">
+        <header>
+            
+            <h2>
+                管道沿程水头损失计算器&nbsp;|&nbsp;专业水力计算工具
+            </h2>
+            <p class="subtitle">为灌溉工程、给排水、暖通等工程场景提供精确的流体力学计算解决方案</p>
+        </header>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon">⚙️</div>
+                <h2>核心功能</h2>
+                <h3>沿程水头损失计算</h3>
+                <p>支持通过输入管道节点坐标、流量、局部损失系数、管段直径等参数，结合不同公式计算水力参数。</p>
+                <ul>
+                    <li>达西-魏斯巴赫公式</li>
+                    <li>哈森-威廉姆斯公式</li>
+                    <li>喷灌规范公式</li>
+                    <li>微灌规范公式</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <h2>操作流程</h2>
+                <h3>数据输入</h3>
+                <p><strong>格式要求：</strong>每行一个节点，数据以英文","分隔，例如：<span class="highlight">0,0,0,40,0.05,100</span></p>
+                <p><strong>参数范围：</strong></p>
+                <ul>
+                    <li>节点坐标（单位：m）</li>
+                    <li>出流量（单位：m³/h）</li>
+                    <li>局部损失系数（ — ）</li>
+                    <li>管段直径（单位：mm）</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">🔍</div>
+                <h2>公式选择</h2>
+                <h3>达西-魏斯巴赫公式</h3>
+                <p>需补充流体密度（kg/m³）、粘度（Pa·s）、管道粗糙度（mm）。</p>
+                <h3>哈森-威廉姆斯公式</h3>
+                <p>需输入C系数。</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">📝</div>
+                <h2>参数设置</h2>
+                <p><strong>必填参数：</strong></p>
+                <ul>
+                    <li>主管内径（mm）</li>
+                    <li>总水头/水泵扬程（m）</li>
+                </ul>
+                <h3>管道粗糙度参考值</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>材质</th>
+                            <th>粗糙度范围（mm）</th>
+                            <th>典型取值（mm）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>塑料管</td>
+                            <td>0.0015~0.01</td>
+                            <td>150</td>
+                        </tr>
+                        <tr>
+                            <td>新铸铁管</td>
+                            <td>-</td>
+                            <td>130</td>
+                        </tr>
+                        <tr>
+                            <td>旧钢管</td>
+                            <td>1~2</td>
+                            <td>100</td>
+                        </tr>
+                        <tr>
+                            <td>混凝土管</td>
+                            <td>0.3~3</td>
+                            <td>120</td>
+                        </tr>
+                        <tr>
+                            <td>石棉水泥管</td>
+                            <td>0.03~0.15</td>
+                            <td>130~140</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 40px;">
+            <div class="card-icon">ℹ️</div>
+            <h2>关键概念与注意事项</h2>
+            <h3>局部阻力系数（k）</h3>
+            <p>无量纲数，反映流体流经管道附件（如弯头、阀门）时的能量损失。</p>
+            <p><strong>取值依据：</strong>流体方向变化、速度变化，需参考水利学手册或实验数据。</p>
+
+            <h3>注意事项</h3>
+            <ul>
+                <li><strong>数据准确性：</strong>严格遵循输入格式，避免因格式错误导致计算偏差。</li>
+                <li><strong>公式适用性：</strong>达西-魏斯巴赫公式适用于精确流体参数已知的场景；哈森-威廉姆斯公式更依赖经验系数C。</li>
+                <li><strong>工程实践建议：</strong>优先使用实测粗糙度与阻力系数，复杂问题需结合专业经验验证计算结果。</li>
+            </ul>
+
+            <a href="https://www.irripro.com.cn/Head_Loss_Calculator_Used.html" class="btn">访问工具</a>
+        </div>
+
+        <div class="footer">
+            <p>网页由IrriPro设计</p>
+            <p>最后更新时间为2025-04-19，星期六</p>
+            <p><a href="https://www.irripro.com.cn" target="_blank">灌溉大师</a></p>
+        </div>
+    </div>
+
+    <script>
+        // 简单的滚动动画触发
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.animation = `fadeInUp 0.6s forwards ${entry.target.dataset.delay || '0s'}`;
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.dataset.delay = `${index * 0.1}s`;
+                observer.observe(card);
+            });
+        });
+    </script>
+
+
+
+  <!-- <div class="jz_fix_ue_img"> -->
       <!-- <p style="line-height:1.5em;"> -->
           <!-- <span style="color:rgba(0, 0, 0, 0.9);font-family:mp-quote, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-size:17px;text-align:justify;text-wrap:wrap;"><img src="//10446153.s21i.faiusr.com/4/ABUIABAEGAAgla-xuAYoqq-rzgUw-wU4gQc.png" width="767" alt="20241026" /></span> -->
       <!-- </p> -->
@@ -59,11 +449,11 @@
     <option value="micro-irrigation">微灌规范 micro-irrigation</option>
   </select>
   <p><h3>主管管道内径 (mm)：</h3></p>
-  <input type="number" id="diameter" value="100" step="1" required>
+  <input type="number" id="diameter" value="100" step="1" required class="custom-input">
   <p><h3>主管总水头/水泵扬程 (m)：</h3></p>
-  <input type="number" id="totalHead" value="60" step="1" required>
+  <input type="number" id="totalHead" value="60" step="1" required class="custom-input">
   <p><h3>流体粘度 (Pa·s) ：</h3></p>
-  <input type="number" id="viscosity" value="0.001" step="0.0001">
+  <input type="number" id="viscosity" value="0.001" step="0.0001" class="custom-input">
   
   <p>1. 塑料<br>
     ~ 塑料管道（如PVC管等）的粗糙度相对较小。对于光滑的塑料管道，其等效粗糙度值通常在(0.0015 ~ 0.01)mm之间。在水力计算中，这种较小的粗糙度使得塑料管道在相同流量下产生的沿程水头损失相对较小。
@@ -75,7 +465,7 @@
     ~ 石棉水泥管的粗糙度值大概在(0.03 ~ 0.15)mm范围内。在水力计算时，需要根据石棉水泥管的实际生产工艺和使用状况确定其粗糙度取值，以准确计算沿程水头损失等水力参数。</p>
   <p><h3>管道粗糙度 (mm) ：</h3></p>
   
-  <input type="number" id="roughness" value="0.002" step="0.1">
+  <input type="number" id="roughness" value="0.002" step="0.1"class="custom-input"   class="custom-input">
   <p><h3>20 ℃ 流体密度 (kg/m³) ：</h3></p>
  <input type="number" id="density" value="1000" step="10">
   <!-- <p><h3>流量 (m³/h)：</h3></p>

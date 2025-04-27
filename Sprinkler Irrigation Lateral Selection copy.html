@@ -12,90 +12,78 @@
       </style>
  <!-- 引入 Chart.js UMD 版本 -->
  <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" crossorigin="anonymous"></script> -->
- <script src="https://unpkg.com/chart.js@4.4.4/dist/chart.umd.js"></script>
- <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script> -->
- <!-- <script src="https://www.irripro.com.cn/cdn.jsdelivr.net_npm_chart.js@4.4.4_dist_chart.umd.js"></script> -->
-
+ <!-- <script src="https://unpkg.com/chart.js@4.4.4/dist/chart.umd.js"></script> -->
+ <script src="https://www.irripro.com.cn/cdn.jsdelivr.net_npm_chart.js@4.4.4_dist_chart.umd.js"></script>
 </head>
 <body>
     <div class="container">
     
-        <H1>从灌水器的试验数据，用最小二乘法 对 q=f(H) 拟合函数 q=aH^b ，单位： l/h，并显示图形</H1>
+        <H1>从灌水器的试验数据，用最小二乘法 对 q=f(H) 拟合函数 Q=aH^b ，单位： m³/h，并显示图形</H1>
 
               
         <div class="container">
-            <table width="317" height="206" border="1"  align="center" cellpadding="2" cellspacing="1">
+            <table width="400" height="206" border="1" align="center" cellpadding="2" cellspacing="1">
                 <caption>
-                  微灌的滴灌/喷头参数
+                  喷头参数
                 </caption>
                 <tr>
-                    <th width="100" align="center" scope="col">微喷头</th>
-                  <th width="100" align="center" scope="col">滴头</th>
-                  <th width="100" align="center" scope="col">滴头</th>
-                  <th width="100" align="center" scope="col">滴灌带</th>
+                  <th width="100" align="center" scope="col">喷头</th>
+                  <th width="100" align="center" scope="col">喷头</th>
+                  <th width="100" align="center" scope="col">滴灌</th>
                 </tr>
                 <tr>
-                    <td align="center">AS0180B</td>
-                  <td align="center">PCD0202</td>
-                  <td align="center">PCD0204</td>
+                  <td align="center">PS 喷嘴 17A</td>
+                  <td align="center">PGP 8.0</td>
                   <td align="center">PC100</td>
                 </tr>
                 <tr>
-                    <td align="center" valign="top">5,38<br />                        
-                        10,58<br />
-                        15,71<br />
-                        20,84<br />
-                        25,94<br />
-                        30,126</td>
-                  <td align="center" valign="top">5,1.9<br />
-              7,2<br />
-              10,2.1<br />
-              20,2.1<br />
-              30,2.2<br />
-              40,2.1</td>
-                  <td align="center" valign="top">5,3.9<br />
-              7,4<br />
-              10,4.1<br />
-              20,4.2<br />
-              30,4.1<br />
-              40,4</td>
-                  <td align="center" valign="top">5,1.02<br />
-              10,1.03<br />
-              20,1.05<br />
-              30,1.04<br />
-              35,1.01</td>
+                  <td align="center" valign="top">10,0.81<br />
+                    15,0.93<br />
+                    21,1.07<br />
+                    25,1.18<br />
+                  30,1.30</td>
+                  <td align="center" valign="top">17 ,1.35<br />
+                    20 ,1.46<br />
+                    25,1.63<br />
+                    30,1.81<br />
+                    35,1.95<br />
+                    40,2.09<br />
+                  45,2.22</td>
+                  <td align="center" valign="top">5,0.00102<br />
+              10,0.0023<br />
+              20,0.0025<br />
+              30,0.0034<br />
+              35,0.0030</td>
                 </tr>
               </table>
-        <p>输入实测参数 (压力 H: 10 m , 流量 Q: 1.03 l/h ）, 请使用英文“,”分隔数据。例如: 10,1.03)：</p>
+        <p>输入实测参数 (压力 H: 21 m , 流量 Q: 1.07 m³/h ）, 请使用英文“,”分隔数据。例如: 21,1.07)：</p>
         <textarea id="emmiterdatas" rows="10" title="请输入数据，每行格式为 压力数字,流量数字"
-        placeholder="示例：5,38 " class="border border-gray-300 p-2 w-full rounded mb-4">
-5,38                       
-10,58
-15,71
-20,84
-25,94
-30,126
+        placeholder="示例：10,0.81" class="border border-gray-300 p-2 w-full rounded mb-4">
+10,0.81
+15,0.93
+21,1.07
+25,1.18
+30,1.30
     </textarea>
-
         
         <button onclick="calculate_aHb()"><h2>灌水器参数计算</h2></button>
         </br>
         <canvas id="calculate_aHbChart" width="400" height="400"></canvas>
         </div>
         
-    <h2>微灌毛管长度计算器</h2>
+    <h2>喷灌支管长度计算器</h2>
  
-  <p>如为变径，从管道的尾端开始，管径从小到大，输入管道参数 (管段长 L: 80 m , 管段内径 D: 15.8 mm, 灌水器间隔: 3 m ）, 请使用英文“,”分隔数据。例如: 80,15.8,3)：</p>
-  
+  <p>如为变径，从管道的尾端开始，管径从小到大，输入管道参数 (管段长 L: 30 m , 管段内径 D: 38.8 mm, 灌水器间隔: 3 m ）, 请使用英文“,”分隔数据。例如: 30,38.8,3)：</p>
   
   <textarea id="segments" rows="10" title="请输入分段数据，格式为 管长数字,管径数字,间隔数字"
-  placeholder="示例：80,15.8,3" class="border border-gray-300 p-2 w-full rounded mb-4">
-80,15.8,3
+  placeholder="示例：30,38.8,3" class="border border-gray-300 p-2 w-full rounded mb-4">
+30,38.8,3
 </textarea>
   <p><h3>请选择水头损失计算公式：</h3></p>
   <select id="formula">
-    <option value="micro-irrigation">微灌规范 micro-irrigation</option>
     <option value="sprinkler-irrigation">喷灌规范 sprinkler-irrigation</option>
+    <option value="micro-irrigation">微灌规范 micro-irrigation</option>
+    
     <option value="hazen-williams">哈森-威廉姆斯 hazen-williams</option>
     
     <option value="darcy-weisbach">达西-魏斯巴赫 darcy-weisbach</option>
@@ -107,7 +95,7 @@
     <p><h3>灌水器设计末端工作水头 (m)：</h3>
   <input type="number" id="totHead" value="20" step="any" required>
     </p>
-  <button onclick="calculate()"><h2>毛管铺设长度分析</h2></button>
+  <button onclick="calculate()"><h2>支管长度分析</h2></button>
 
   <div class="result" id="result" width="680" height="400"></div>
 
@@ -258,7 +246,7 @@ function calculate_aHb() {
                         pointRadius: 5
                     },
                     {
-                        label: `q = ${a.toFixed(4)}H^${b.toFixed(4)} l/h`,
+                        label: `Q = ${a.toFixed(4)}H^${b.toFixed(4)} m³/h`,
                         data: fitXData.map((x, i) => ({ x, y: fitYData[i] })),
                         borderColor: 'rgba(75, 192, 192, 1)',
                         borderWidth: 2,
@@ -282,7 +270,7 @@ function calculate_aHb() {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: '流量 q （l/h）'
+                            text: '流量 Q （m³/h）'
                         }
                     }
                 },
@@ -378,7 +366,7 @@ function calculate_aHb() {
                             tension: 0.1 // 曲线张力
                         },
                         {  
-                            label: `流量偏差率 ${diffQ.toFixed(2)} % / 微喷允许水头损失线 (m)`, // 另一个数据集标题
+                            label: `流量偏差率 ${diffQ.toFixed(2)} % / 允许水头损失线 (m)`, // 另一个数据集标题
                             data: yy_coord, // 直接使用 yy_coord 作为数据集，假设它已经是一个配对的数组
                             fill: true, // 不填充图形，为了保持一致性
                             borderColor: 'Red', // 边框颜色
@@ -588,8 +576,8 @@ function calculate_aHb() {
             const formula = document.getElementById('formula').value;
             
             resultElement.innerHTML='';
-            // 假设 n 和 Lngth 已经在外部被正确初始化
-            let Qd = bestA* Math.pow(Hd,bestB) *0.001/ 3600; // 喷头流量 (m^3/s)
+            // 假设 n 和 Lngth 已经在外部被正确初始化 *0.001
+            let Qd = bestA* Math.pow(Hd,bestB) / 3600; // 喷头流量 (m^3/s)
             let Qmin=Qd;
             let Qsum=0;
             // console.log("估计的a值:", bestA);
@@ -607,7 +595,7 @@ function calculate_aHb() {
  
                     const hf = calculateHeadLoss(dx, D, q, roughness, formula);
                     cumulativeHF += hf-downSlope*dx;
-                    Qd= bestA* Math.pow(Hd+cumulativeHF,bestB)*0.001 / 3600;
+                    Qd= bestA* Math.pow(Hd+cumulativeHF,bestB) / 3600;
                     xValues.push(x);
                     hfValues.push(cumulativeHF);
                     Qsum=q;

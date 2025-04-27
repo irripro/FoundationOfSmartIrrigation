@@ -13,19 +13,25 @@
         //     "webRoot": "${workspaceFolder}"
         // },
         // {
+        //     "type": "msedge",
+        //     "request": "launch",
+        //     "name": "Three-section reducer pipe selection.html",
+        //     "file": "d:\\GitHub\\FoundationOfSmartIrrigation\\Sprinkler Irrigation Lateral Selection.html"
+        // },
+        // {
         //     "name": "Launch Edge",
         //     "request": "launch",
         //     "type": "msedge",
         //     "url": "file://d://GitHub//FoundationOfSmartIrrigation///Micro-Irrigation-Design-0.html",
         //     "webRoot": "${workspaceFolder}"
         // },
-        // {
-        //     "name": "Launch Edge",
-        //     "request": "launch",
-        //     "type": "msedge",
-        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Head_Loss_Calculator_Used.html",
-        //     "webRoot": "${workspaceFolder}"
-        // },
+        {
+            "name": "Launch Edge",
+            "request": "launch",
+            "type": "msedge",
+            "url": "file://d://GitHub//FoundationOfSmartIrrigation//Head_Loss_Calculator_Used_1.html",
+            "webRoot": "${workspaceFolder}"
+        },
         // {
         //     "name": "Launch Edge",
         //     "request": "launch",
@@ -33,13 +39,13 @@
         //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//用地点名获取经纬度的方法.html",
         //     "webRoot": "${workspaceFolder}"
         // },
-        {
-            "name": "Launch Edge",
-            "request": "launch",
-            "type": "msedge",
-            "url": "file://d://GitHub//FoundationOfSmartIrrigation//Micro-3D-T-Layout-5.html",
-            "webRoot": "${workspaceFolder}"
-        },
+        // {
+        //     "name": "Launch Edge",
+        //     "request": "launch",
+        //     "type": "msedge",
+        //     "url": "file://d://GitHub//FoundationOfSmartIrrigation//Micro-3D-T-Layout-5.html",
+        //     "webRoot": "${workspaceFolder}"
+        // },
         // {
         //     "name": "Launch Edge",
         //     "request": "launch",
