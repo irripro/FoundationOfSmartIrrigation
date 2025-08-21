@@ -49,3 +49,6 @@
 - **异步IO**：利用asyncio库进行高效的异步编程。
 
 这些是基于Python的软件开发的一些基础知识。随着技能的增长，你还可以深入学习更多高级主题和技术。不断实践和构建项目是提高编程能力的最佳途径。
+只有你具备Python知识后，才好理解这里的内容！更多专业知识敬请扫二维码：
+<img width="509" height="634" alt="image" src="https://github.com/user-attachments/assets/1f11205b-996f-4c59-90d4-03df94a8fe68" />
+
